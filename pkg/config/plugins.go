@@ -17,7 +17,7 @@ const PluginsConfigFile = "plugins.json"
 // LoadPluginsConfig loads the plugins configuration from plugins.json
 func LoadPluginsConfig() (*PluginsConfig, error) {
 	configPath := PluginsConfigFile
-	
+
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {

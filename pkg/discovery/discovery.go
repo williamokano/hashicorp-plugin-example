@@ -65,12 +65,12 @@ func DiscoverPlugins(paths []string) ([]DiscoveredPlugin, error) {
 			}
 
 			pluginName := strings.TrimPrefix(name, PluginPrefix)
-			
+
 			// Skip the CLI itself (plugin-cli is not a plugin)
 			if pluginName == "cli" {
 				continue
 			}
-			
+
 			plugins = append(plugins, DiscoveredPlugin{
 				Name: pluginName,
 				Path: pluginPath,

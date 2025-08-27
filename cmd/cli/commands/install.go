@@ -1,9 +1,7 @@
 package commands
 
 import (
-	"crypto/sha256"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -77,7 +75,7 @@ func runInstallAll(cmd *cobra.Command, args []string) error {
 	parallel, _ := cmd.Flags().GetInt("parallel")
 	// verifyChecksums, _ := cmd.Flags().GetBool("verify-checksums")  // TODO: Implement checksum verification
 	// ignoreLock, _ := cmd.Flags().GetBool("ignore-lock")  // TODO: Implement lock file checking
-	
+
 	// Limit parallel downloads
 	if parallel < 1 {
 		parallel = 1
@@ -89,7 +87,7 @@ func runInstallAll(cmd *cobra.Command, args []string) error {
 	if parallel > 1 {
 		fmt.Printf(" (up to %d in parallel)", parallel)
 	}
-	fmt.Println("\n")
+	fmt.Println()
 
 	// Ensure .plugins directory exists
 	pluginsDir := config.GetPluginsDirectory()
@@ -100,7 +98,7 @@ func runInstallAll(cmd *cobra.Command, args []string) error {
 	// Prepare download items
 	var downloadItems []download.DownloadItem
 	skipped := 0
-	
+
 	for pluginName, versionSpec := range cfg.Plugins {
 		version := parseVersionSpec(versionSpec)
 		pluginPath := filepath.Join(pluginsDir, pluginName)
@@ -131,14 +129,14 @@ func runInstallAll(cmd *cobra.Command, args []string) error {
 
 	// Create download queue with progress reporting
 	queue := download.NewDownloadQueue(parallel)
-	
+
 	// Add progress callback
 	queue.SetProgressCallback(func(completed, total int, current string) {
 		if current != "" {
 			fmt.Printf("[%d/%d] Downloading %s...\n", completed+1, total, current)
 		}
 	})
-	
+
 	// Add error callback
 	failed := []string{}
 	queue.SetErrorCallback(func(name string, err error) {
@@ -155,14 +153,14 @@ func runInstallAll(cmd *cobra.Command, args []string) error {
 	lock := &config.PluginsLock{
 		Plugins: []config.PluginLockEntry{},
 	}
-	
-	err = queue.Execute(func(item download.DownloadItem) error {
+
+	_ = queue.Execute(func(item download.DownloadItem) error {
 		if err := installPluginWithItem(item, repo); err != nil {
 			return err
 		}
-		
+
 		fmt.Printf("  ✓ %s@%s installed successfully\n", item.Name, item.Version)
-		
+
 		// Add to lock file
 		if updateLock {
 			lock.Plugins = append(lock.Plugins, config.PluginLockEntry{
@@ -171,7 +169,7 @@ func runInstallAll(cmd *cobra.Command, args []string) error {
 				// URL and checksum would be filled by actual download
 			})
 		}
-		
+
 		return nil
 	})
 
@@ -212,32 +210,18 @@ func parseVersionSpec(spec string) string {
 	spec = strings.TrimPrefix(spec, "<=")
 	spec = strings.TrimPrefix(spec, "<")
 	spec = strings.TrimPrefix(spec, "=")
-	
+
 	if spec == "" || spec == "*" {
 		return "latest"
 	}
-	
-	return spec
-}
 
-func installPlugin(pluginName, version, repo string) error {
-	item := download.DownloadItem{
-		Name:     pluginName,
-		Version:  version,
-		DestPath: filepath.Join(config.GetPluginsDirectory(), pluginName),
-	}
-	
-	if runtime.GOOS == "windows" {
-		item.DestPath += ".exe"
-	}
-	
-	return installPluginWithItem(item, repo)
+	return spec
 }
 
 func installPluginWithItem(item download.DownloadItem, repo string) error {
 	osName := runtime.GOOS
 	archName := runtime.GOARCH
-	
+
 	// Get actual version if "latest"
 	actualVersion := item.Version
 	if item.Version == "latest" {
@@ -260,39 +244,13 @@ func installPluginWithItem(item download.DownloadItem, repo string) error {
 	}
 
 	fmt.Printf("  Downloading %s_%s_%s_%s...\n", item.Name, actualVersion, osName, archName)
-	
+
 	// In production, this would:
 	// 1. Download the tar.gz from GitHub releases
 	// 2. Verify checksum
 	// 3. Extract to .plugins/
 	// 4. Set executable permissions
-	
+
 	// For now, return a clear message
 	return fmt.Errorf("GitHub releases not yet available (will work after first release)")
-}
-
-func verifyPluginChecksum(filepath string, expectedChecksum string) error {
-	if expectedChecksum == "" {
-		return nil // No checksum to verify
-	}
-	
-	file, err := os.Open(filepath)
-	if err != nil {
-		return fmt.Errorf("failed to open file for checksum: %w", err)
-	}
-	defer file.Close()
-	
-	// Calculate SHA256
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, file); err != nil {
-		return fmt.Errorf("failed to calculate checksum: %w", err)
-	}
-	
-	actualChecksum := fmt.Sprintf("sha256:%x", hasher.Sum(nil))
-	
-	if actualChecksum != expectedChecksum {
-		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedChecksum, actualChecksum)
-	}
-	
-	return nil
 }

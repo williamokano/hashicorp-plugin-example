@@ -39,7 +39,7 @@ func init() {
 	addCmd.Flags().StringVarP(&addRepo, "repo", "r", "williamokano/hashicorp-plugin-example", "GitHub repository")
 	addCmd.Flags().BoolVar(&saveExact, "save-exact", false, "Save exact version in plugins.json")
 	addCmd.Flags().BoolVar(&skipDownload, "skip-download", false, "Only update plugins.json without downloading")
-	
+
 	rootCmd.AddCommand(addCmd)
 }
 
@@ -52,7 +52,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	// Parse plugin name and version
 	input := args[0]
 	pluginName, version := parsePluginSpec(input)
-	
+
 	// Ensure plugin name has correct prefix
 	if !strings.HasPrefix(pluginName, "plugin-") {
 		pluginName = "plugin-" + pluginName
@@ -74,7 +74,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	// Download the plugin if not skipping
 	if !skipDownload {
 		fmt.Printf("Downloading %s...\n", pluginName)
-		
+
 		// Use the download functionality
 		if err := downloadPlugin(pluginName, version, addRepo); err != nil {
 			return fmt.Errorf("failed to download plugin: %w", err)
@@ -87,9 +87,9 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		// Could use semver ranges here in the future
 		versionToSave = "^" + version
 	}
-	
+
 	cfg.AddPlugin(pluginName, versionToSave)
-	
+
 	if err := config.SavePluginsConfig(cfg); err != nil {
 		return fmt.Errorf("failed to update plugins.json: %w", err)
 	}
@@ -101,7 +101,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("✓ Added %s@%s to plugins.json\n", pluginName, versionToSave)
-	
+
 	// Show current plugins
 	fmt.Println("\nCurrent plugins:")
 	for name, ver := range cfg.Plugins {
@@ -115,11 +115,11 @@ func parsePluginSpec(spec string) (name, version string) {
 	parts := strings.Split(spec, "@")
 	name = parts[0]
 	version = "latest"
-	
+
 	if len(parts) > 1 {
 		version = parts[1]
 	}
-	
+
 	return name, version
 }
 
@@ -129,7 +129,7 @@ func downloadPlugin(pluginName, version, repo string) error {
 	archName := runtime.GOARCH
 
 	pluginsDir := config.GetPluginsDirectory()
-	
+
 	// Ensure plugins directory exists
 	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create plugins directory: %w", err)
@@ -158,7 +158,7 @@ func downloadPlugin(pluginName, version, repo string) error {
 		shortName := strings.TrimPrefix(pluginName, "plugin-")
 		altURL := fmt.Sprintf("https://github.com/%s/releases/download/plugin-%s-v%s/%s",
 			repo, shortName, actualVersion, archiveName)
-		
+
 		// Try plugin-specific URL first
 		if err := downloadAndExtract(altURL, pluginsDir, pluginPath); err == nil {
 			return nil
@@ -175,7 +175,7 @@ func downloadPlugin(pluginName, version, repo string) error {
 func downloadAndExtract(url, destDir, pluginPath string) error {
 	// Simulated download for now - would use actual download logic
 	fmt.Printf("  Attempting download from: %s\n", url)
-	
+
 	// In development mode, just create a symlink to local binary if it exists
 	localBinary := fmt.Sprintf("./bin/%s", filepath.Base(pluginPath))
 	if _, err := os.Stat(localBinary); err == nil {
@@ -190,7 +190,7 @@ func downloadAndExtract(url, destDir, pluginPath string) error {
 		}
 		return nil
 	}
-	
+
 	// In production, this would actually download
 	// For now, return an error indicating the release doesn't exist yet
 	return fmt.Errorf("release not found (HTTP 404)")
@@ -211,7 +211,7 @@ func updateLockFile(pluginName, version, repo string) error {
 	osName := runtime.GOOS
 	archName := runtime.GOARCH
 	archiveName := fmt.Sprintf("%s_%s_%s_%s.tar.gz", pluginName, actualVersion, osName, archName)
-	
+
 	downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s",
 		repo, actualVersion, archiveName)
 

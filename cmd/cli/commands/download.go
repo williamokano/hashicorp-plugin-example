@@ -42,11 +42,11 @@ Examples:
 }
 
 var (
-	downloadVersion  string
-	downloadRepo     string
-	verifyChecksum   bool
-	downloadPath     string
-	forceDownload    bool
+	downloadVersion string
+	downloadRepo    string
+	verifyChecksum  bool
+	downloadPath    string
+	forceDownload   bool
 )
 
 func init() {
@@ -55,7 +55,7 @@ func init() {
 	downloadCmd.Flags().BoolVar(&verifyChecksum, "verify", true, "Verify SHA256 checksum")
 	downloadCmd.Flags().StringVarP(&downloadPath, "path", "p", ".plugins", "Directory to download plugin to")
 	downloadCmd.Flags().BoolVarP(&forceDownload, "force", "f", false, "Force download even if plugin exists")
-	
+
 	rootCmd.AddCommand(downloadCmd)
 }
 

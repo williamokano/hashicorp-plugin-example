@@ -33,29 +33,29 @@ var registrySearchCmd = &cobra.Command{
 }
 
 var (
-	registryRepo string
+	registryRepo    string
 	showAllVersions bool
 )
 
 func init() {
 	registryCmd.PersistentFlags().StringVarP(&registryRepo, "repo", "r", "williamokano/hashicorp-plugin-example", "GitHub repository (owner/repo)")
-	
+
 	registryListCmd.Flags().BoolVar(&showAllVersions, "all-versions", false, "Show all available versions")
-	
+
 	registryCmd.AddCommand(registryListCmd)
 	registryCmd.AddCommand(registrySearchCmd)
-	
+
 	rootCmd.AddCommand(registryCmd)
 }
 
 // GitHub API structures
 type GitHubRelease struct {
-	TagName    string `json:"tag_name"`
-	Name       string `json:"name"`
-	Draft      bool   `json:"draft"`
-	Prerelease bool   `json:"prerelease"`
-	Assets     []GitHubAsset `json:"assets"`
-	PublishedAt string `json:"published_at"`
+	TagName     string        `json:"tag_name"`
+	Name        string        `json:"name"`
+	Draft       bool          `json:"draft"`
+	Prerelease  bool          `json:"prerelease"`
+	Assets      []GitHubAsset `json:"assets"`
+	PublishedAt string        `json:"published_at"`
 }
 
 type GitHubAsset struct {
@@ -71,14 +71,14 @@ func runRegistryList(cmd *cobra.Command, args []string) error {
 	}
 
 	plugins := extractPluginInfo(releases)
-	
+
 	if len(plugins) == 0 {
 		fmt.Println("No plugins found in registry")
 		return nil
 	}
 
 	fmt.Printf("Available plugins from %s:\n\n", registryRepo)
-	
+
 	// Group plugins by name
 	pluginVersions := make(map[string][]string)
 	for _, plugin := range plugins {
@@ -88,18 +88,18 @@ func runRegistryList(cmd *cobra.Command, args []string) error {
 	// Display plugins
 	fmt.Printf("%-20s %-15s %s\n", "PLUGIN", "LATEST VERSION", "AVAILABLE VERSIONS")
 	fmt.Printf("%-20s %-15s %s\n", "------", "--------------", "------------------")
-	
+
 	for name, versions := range pluginVersions {
 		if len(versions) > 0 {
 			latest := versions[0] // Assumes versions are sorted (newest first)
 			otherVersions := ""
-			
+
 			if showAllVersions && len(versions) > 1 {
 				otherVersions = strings.Join(versions[1:], ", ")
 			} else if len(versions) > 1 {
 				otherVersions = fmt.Sprintf("(+%d more)", len(versions)-1)
 			}
-			
+
 			fmt.Printf("%-20s %-15s %s\n", name, latest, otherVersions)
 		}
 	}
@@ -110,14 +110,14 @@ func runRegistryList(cmd *cobra.Command, args []string) error {
 
 func runRegistrySearch(cmd *cobra.Command, args []string) error {
 	query := strings.ToLower(args[0])
-	
+
 	releases, err := fetchReleases(registryRepo)
 	if err != nil {
 		return fmt.Errorf("failed to fetch releases: %w", err)
 	}
 
 	plugins := extractPluginInfo(releases)
-	
+
 	// Filter plugins by query
 	var matches []PluginInfo
 	for _, plugin := range plugins {
@@ -134,7 +134,7 @@ func runRegistrySearch(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Plugins matching '%s':\n\n", query)
 	fmt.Printf("%-20s %-15s\n", "PLUGIN", "VERSION")
 	fmt.Printf("%-20s %-15s\n", "------", "-------")
-	
+
 	for _, plugin := range matches {
 		fmt.Printf("%-20s %-15s\n", plugin.Name, plugin.Version)
 	}
@@ -149,7 +149,7 @@ type PluginInfo struct {
 
 func fetchReleases(repo string) ([]GitHubRelease, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases", repo)
-	
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func extractPluginInfo(releases []GitHubRelease) []PluginInfo {
 
 		// Extract version from tag
 		version := strings.TrimPrefix(release.TagName, "v")
-		
+
 		// Check if this is a plugin-specific release
 		if strings.HasPrefix(release.TagName, "plugin-") {
 			// Format: plugin-<name>-v<version>
@@ -187,7 +187,7 @@ func extractPluginInfo(releases []GitHubRelease) []PluginInfo {
 			if len(parts) >= 3 {
 				pluginName := "plugin-" + parts[1]
 				version = strings.TrimPrefix(parts[2], "v")
-				
+
 				key := fmt.Sprintf("%s-%s", pluginName, version)
 				if !seen[key] {
 					plugins = append(plugins, PluginInfo{
@@ -206,12 +206,12 @@ func extractPluginInfo(releases []GitHubRelease) []PluginInfo {
 					parts := strings.Split(asset.Name, "_")
 					if len(parts) >= 4 {
 						pluginName := parts[0]
-						
+
 						// Skip if it's the CLI
 						if pluginName == "plugin-cli" {
 							continue
 						}
-						
+
 						key := fmt.Sprintf("%s-%s", pluginName, version)
 						if !seen[key] {
 							plugins = append(plugins, PluginInfo{

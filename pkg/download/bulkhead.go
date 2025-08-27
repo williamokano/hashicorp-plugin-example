@@ -16,7 +16,7 @@ func NewBulkhead(maxConcurrent int) *Bulkhead {
 	if maxConcurrent <= 0 {
 		maxConcurrent = 1
 	}
-	
+
 	return &Bulkhead{
 		semaphore: make(chan struct{}, maxConcurrent),
 	}
@@ -27,7 +27,7 @@ func (b *Bulkhead) Execute(fn func() error) error {
 	// Acquire semaphore
 	b.semaphore <- struct{}{}
 	defer func() { <-b.semaphore }()
-	
+
 	return fn()
 }
 
@@ -36,7 +36,7 @@ func (b *Bulkhead) ExecuteAsync(fn func() error) {
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
-		b.Execute(fn)
+		_ = b.Execute(fn)
 	}()
 }
 
@@ -64,7 +64,7 @@ func NewParallelDownloader(maxConcurrent int) *ParallelDownloader {
 	if maxConcurrent <= 0 {
 		maxConcurrent = 4 // Default to 4 concurrent downloads
 	}
-	
+
 	return &ParallelDownloader{
 		bulkhead:      NewBulkhead(maxConcurrent),
 		maxConcurrent: maxConcurrent,
@@ -93,7 +93,7 @@ func (pd *ParallelDownloader) DownloadAll(items []DownloadItem, downloadFunc fun
 	var wg sync.WaitGroup
 	results := make([]BulkheadResult, 0, len(items))
 	resultChan := make(chan BulkheadResult, len(items))
-	
+
 	// Start downloads
 	for _, item := range items {
 		// Check context
@@ -102,11 +102,11 @@ func (pd *ParallelDownloader) DownloadAll(items []DownloadItem, downloadFunc fun
 			return results, pd.ctx.Err()
 		default:
 		}
-		
+
 		wg.Add(1)
 		go func(item DownloadItem) {
 			defer wg.Done()
-			
+
 			err := pd.bulkhead.Execute(func() error {
 				// Check context before download
 				select {
@@ -114,28 +114,28 @@ func (pd *ParallelDownloader) DownloadAll(items []DownloadItem, downloadFunc fun
 					return pd.ctx.Err()
 				default:
 				}
-				
+
 				return downloadFunc(item)
 			})
-			
+
 			resultChan <- BulkheadResult{
 				Name:  item.Name,
 				Error: err,
 			}
 		}(item)
 	}
-	
+
 	// Wait for all downloads to complete
 	go func() {
 		wg.Wait()
 		close(resultChan)
 	}()
-	
+
 	// Collect results
 	for result := range resultChan {
 		results = append(results, result)
 	}
-	
+
 	return results, nil
 }
 
@@ -175,46 +175,46 @@ func (q *DownloadQueue) Execute(downloadFunc func(DownloadItem) error) error {
 	if len(q.items) == 0 {
 		return nil
 	}
-	
+
 	var wg sync.WaitGroup
 	completed := 0
 	total := len(q.items)
 	var mu sync.Mutex
-	
+
 	for _, item := range q.items {
 		wg.Add(1)
 		go func(item DownloadItem) {
 			defer wg.Done()
-			
+
 			// Report progress
 			mu.Lock()
 			if q.onProgress != nil {
 				q.onProgress(completed, total, item.Name)
 			}
 			mu.Unlock()
-			
+
 			// Execute download
 			err := q.downloader.bulkhead.Execute(func() error {
 				return downloadFunc(item)
 			})
-			
+
 			mu.Lock()
 			completed++
 			mu.Unlock()
-			
+
 			if err != nil && q.onError != nil {
 				q.onError(item.Name, err)
 			}
 		}(item)
 	}
-	
+
 	wg.Wait()
-	
+
 	// Final progress report
 	if q.onProgress != nil {
 		q.onProgress(completed, total, "")
 	}
-	
+
 	return nil
 }
 

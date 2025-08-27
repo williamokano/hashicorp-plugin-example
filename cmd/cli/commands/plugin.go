@@ -175,7 +175,7 @@ func newPluginRemoveCommand() *cobra.Command {
 			if !force {
 				fmt.Printf("Are you sure you want to remove plugin '%s'? (y/N): ", pluginName)
 				var response string
-				fmt.Scanln(&response)
+				_, _ = fmt.Scanln(&response)
 				if response != "y" && response != "Y" {
 					fmt.Println("Cancelled")
 					return nil

@@ -39,15 +39,15 @@ func ContextToProto(ctx *types.Context) *ContextProto {
 // ProtoToContext converts protobuf format to Context
 func ProtoToContext(proto *ContextProto) *types.Context {
 	var props map[string]interface{}
-	json.Unmarshal([]byte(proto.PropertiesJson), &props)
+	_ = json.Unmarshal([]byte(proto.PropertiesJson), &props)
 
 	var metadata map[string]interface{}
-	json.Unmarshal([]byte(proto.Event.MetadataJson), &metadata)
+	_ = json.Unmarshal([]byte(proto.Event.MetadataJson), &metadata)
 
 	responses := make([]types.Response, len(proto.Responses))
 	for i, resp := range proto.Responses {
 		var data map[string]interface{}
-		json.Unmarshal([]byte(resp.DataJson), &data)
+		_ = json.Unmarshal([]byte(resp.DataJson), &data)
 		responses[i] = types.Response{
 			PluginName: resp.PluginName,
 			Content:    resp.Content,

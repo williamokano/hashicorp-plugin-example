@@ -45,7 +45,7 @@ func runRemove(cmd *cobra.Command, args []string) error {
 	}
 
 	pluginName := args[0]
-	
+
 	// Ensure plugin name has correct prefix
 	if !strings.HasPrefix(pluginName, "plugin-") {
 		pluginName = "plugin-" + pluginName
@@ -82,7 +82,7 @@ func runRemove(cmd *cobra.Command, args []string) error {
 
 	// Update plugins.json
 	cfg.RemovePlugin(pluginName)
-	
+
 	if err := config.SavePluginsConfig(cfg); err != nil {
 		return fmt.Errorf("failed to update plugins.json: %w", err)
 	}

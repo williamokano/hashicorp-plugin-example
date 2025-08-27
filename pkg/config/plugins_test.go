@@ -65,7 +65,7 @@ func TestLoadPluginsConfig(t *testing.T) {
 			// Setup test directory
 			tempDir := t.TempDir()
 			oldDir, _ := os.Getwd()
-			defer os.Chdir(oldDir)
+			defer func() { _ = os.Chdir(oldDir) }()
 			require.NoError(t, os.Chdir(tempDir))
 
 			// Setup file if needed
@@ -90,7 +90,7 @@ func TestSavePluginsConfig(t *testing.T) {
 	// Setup test directory
 	tempDir := t.TempDir()
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
+	defer func() { _ = os.Chdir(oldDir) }()
 	require.NoError(t, os.Chdir(tempDir))
 
 	config := &PluginsConfig{
@@ -141,7 +141,7 @@ func TestInitPluginsConfig(t *testing.T) {
 			// Setup test directory
 			tempDir := t.TempDir()
 			oldDir, _ := os.Getwd()
-			defer os.Chdir(oldDir)
+			defer func() { _ = os.Chdir(oldDir) }()
 			require.NoError(t, os.Chdir(tempDir))
 
 			// Create existing file if needed
@@ -176,15 +176,15 @@ func TestInitPluginsConfig(t *testing.T) {
 
 func TestPluginsConfig_AddPlugin(t *testing.T) {
 	config := &PluginsConfig{}
-	
+
 	// Add to nil map
 	config.AddPlugin("plugin-dummy", "1.0.0")
 	assert.Equal(t, "1.0.0", config.Plugins["plugin-dummy"])
-	
+
 	// Update existing
 	config.AddPlugin("plugin-dummy", "2.0.0")
 	assert.Equal(t, "2.0.0", config.Plugins["plugin-dummy"])
-	
+
 	// Add another
 	config.AddPlugin("plugin-filter", "latest")
 	assert.Len(t, config.Plugins, 2)
@@ -197,12 +197,12 @@ func TestPluginsConfig_RemovePlugin(t *testing.T) {
 			"plugin-filter": "2.0.0",
 		},
 	}
-	
+
 	// Remove existing
 	config.RemovePlugin("plugin-dummy")
 	assert.Len(t, config.Plugins, 1)
 	assert.NotContains(t, config.Plugins, "plugin-dummy")
-	
+
 	// Remove non-existing (should not panic)
 	config.RemovePlugin("plugin-nonexistent")
 	assert.Len(t, config.Plugins, 1)
@@ -214,12 +214,12 @@ func TestPluginsConfig_GetPluginVersion(t *testing.T) {
 			"plugin-dummy": "1.0.0",
 		},
 	}
-	
+
 	// Get existing
 	version, exists := config.GetPluginVersion("plugin-dummy")
 	assert.True(t, exists)
 	assert.Equal(t, "1.0.0", version)
-	
+
 	// Get non-existing
 	version, exists = config.GetPluginVersion("plugin-filter")
 	assert.False(t, exists)
@@ -230,16 +230,16 @@ func TestIsProjectInitialized(t *testing.T) {
 	// Setup test directory
 	tempDir := t.TempDir()
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
+	defer func() { _ = os.Chdir(oldDir) }()
 	require.NoError(t, os.Chdir(tempDir))
-	
+
 	// Not initialized
 	assert.False(t, IsProjectInitialized())
-	
+
 	// Create file
 	err := os.WriteFile(PluginsConfigFile, []byte("{}"), 0644)
 	require.NoError(t, err)
-	
+
 	// Now initialized
 	assert.True(t, IsProjectInitialized())
 }
@@ -297,7 +297,7 @@ func TestLoadPluginsLock(t *testing.T) {
 			// Setup test directory
 			tempDir := t.TempDir()
 			oldDir, _ := os.Getwd()
-			defer os.Chdir(oldDir)
+			defer func() { _ = os.Chdir(oldDir) }()
 			require.NoError(t, os.Chdir(tempDir))
 
 			// Setup file if needed
@@ -322,7 +322,7 @@ func TestSavePluginsLock(t *testing.T) {
 	// Setup test directory
 	tempDir := t.TempDir()
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
+	defer func() { _ = os.Chdir(oldDir) }()
 	require.NoError(t, os.Chdir(tempDir))
 
 	lock := &PluginsLock{
