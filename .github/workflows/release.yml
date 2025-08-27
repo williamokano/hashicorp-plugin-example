@@ -1,0 +1,277 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'plugin-*-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Release Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux builds
+          - os: linux
+            arch: amd64
+            goos: linux
+            goarch: amd64
+          - os: linux
+            arch: 386
+            goos: linux
+            goarch: 386
+          - os: linux
+            arch: arm64
+            goos: linux
+            goarch: arm64
+          
+          # macOS builds
+          - os: darwin
+            arch: amd64
+            goos: darwin
+            goarch: amd64
+          - os: darwin
+            arch: arm64
+            goos: darwin
+            goarch: arm64
+          
+          # Windows builds
+          - os: windows
+            arch: amd64
+            goos: windows
+            goarch: amd64
+          - os: windows
+            arch: 386
+            goos: windows
+            goarch: 386
+          - os: windows
+            arch: arm64
+            goos: windows
+            goarch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [[ "${{ github.ref_name }}" =~ ^plugin-(.*)-v(.*)$ ]]; then
+            # Plugin-specific tag like plugin-dummy-v1.0.0
+            echo "PLUGIN_NAME=plugin-${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "VERSION=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
+            echo "IS_PLUGIN=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" =~ ^v(.*)$ ]]; then
+            # General release tag like v1.0.0 (all plugins and CLI)
+            echo "VERSION=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            echo "IS_PLUGIN=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build CLI
+        if: steps.get_version.outputs.IS_PLUGIN == 'false'
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          LDFLAGS="-X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIVersion=${VERSION}"
+          LDFLAGS="${LDFLAGS} -X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIBuildTime=${BUILD_TIME}"
+          LDFLAGS="${LDFLAGS} -X main.Version=${VERSION}"
+          LDFLAGS="${LDFLAGS} -X main.BuildTime=${BUILD_TIME}"
+          
+          BINARY_NAME="plugin-cli"
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            BINARY_NAME="${BINARY_NAME}.exe"
+          fi
+          
+          go build -ldflags "${LDFLAGS}" -o ${BINARY_NAME} cmd/cli/main.go
+          
+          # Create archive
+          ARCHIVE_NAME="plugin-cli_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz"
+          tar czf ${ARCHIVE_NAME} ${BINARY_NAME}
+          
+          # Generate SHA256 checksum
+          sha256sum ${ARCHIVE_NAME} > ${ARCHIVE_NAME}.sha256
+
+      - name: Build all plugins
+        if: steps.get_version.outputs.IS_PLUGIN == 'false'
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          LDFLAGS="-X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIVersion=${VERSION}"
+          LDFLAGS="${LDFLAGS} -X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIBuildTime=${BUILD_TIME}"
+          LDFLAGS="${LDFLAGS} -X main.Version=${VERSION}"
+          LDFLAGS="${LDFLAGS} -X main.BuildTime=${BUILD_TIME}"
+          
+          # Build each plugin
+          for PLUGIN_DIR in plugins/*/; do
+            PLUGIN=$(basename ${PLUGIN_DIR})
+            BINARY_NAME="plugin-${PLUGIN}"
+            
+            if [ "${{ matrix.os }}" = "windows" ]; then
+              BINARY_NAME="${BINARY_NAME}.exe"
+            fi
+            
+            echo "Building ${PLUGIN}..."
+            go build -ldflags "${LDFLAGS}" -o ${BINARY_NAME} ${PLUGIN_DIR}/main.go
+            
+            # Create archive
+            ARCHIVE_NAME="plugin-${PLUGIN}_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz"
+            tar czf ${ARCHIVE_NAME} ${BINARY_NAME}
+            
+            # Generate SHA256 checksum
+            sha256sum ${ARCHIVE_NAME} > ${ARCHIVE_NAME}.sha256
+          done
+
+      - name: Build specific plugin
+        if: steps.get_version.outputs.IS_PLUGIN == 'true'
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          PLUGIN_NAME=${{ steps.get_version.outputs.PLUGIN_NAME }}
+          PLUGIN=${PLUGIN_NAME#plugin-}
+          
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          LDFLAGS="-X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIVersion=${VERSION}"
+          LDFLAGS="${LDFLAGS} -X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIBuildTime=${BUILD_TIME}"
+          LDFLAGS="${LDFLAGS} -X main.Version=${VERSION}"
+          LDFLAGS="${LDFLAGS} -X main.BuildTime=${BUILD_TIME}"
+          
+          BINARY_NAME="${PLUGIN_NAME}"
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            BINARY_NAME="${BINARY_NAME}.exe"
+          fi
+          
+          echo "Building ${PLUGIN}..."
+          go build -ldflags "${LDFLAGS}" -o ${BINARY_NAME} plugins/${PLUGIN}/main.go
+          
+          # Create archive
+          ARCHIVE_NAME="${PLUGIN_NAME}_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz"
+          tar czf ${ARCHIVE_NAME} ${BINARY_NAME}
+          
+          # Generate SHA256 checksum
+          sha256sum ${ARCHIVE_NAME} > ${ARCHIVE_NAME}.sha256
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            *.tar.gz
+            *.sha256
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Organize release files
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" \) -exec mv {} release/ \;
+          
+          # Copy plugin metadata if it exists
+          if [ -f "plugin-metadata.json" ]; then
+            cp plugin-metadata.json release/
+          fi
+          
+          ls -la release/
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          if [[ "${{ github.ref_name }}" =~ ^plugin-(.*)-v(.*)$ ]]; then
+            PLUGIN_NAME=${BASH_REMATCH[1]}
+            VERSION=${BASH_REMATCH[2]}
+            echo "# Plugin Release: ${PLUGIN_NAME} v${VERSION}" > release_notes.md
+            echo "" >> release_notes.md
+            echo "## Downloads" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "### Plugin Binaries" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "| OS | Architecture | Download |" >> release_notes.md
+            echo "|---|---|---|" >> release_notes.md
+            echo "| Linux | amd64 | [plugin-${PLUGIN_NAME}_${VERSION}_linux_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_linux_amd64.tar.gz) |" >> release_notes.md
+            echo "| Linux | 386 | [plugin-${PLUGIN_NAME}_${VERSION}_linux_386.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_linux_386.tar.gz) |" >> release_notes.md
+            echo "| Linux | arm64 | [plugin-${PLUGIN_NAME}_${VERSION}_linux_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_linux_arm64.tar.gz) |" >> release_notes.md
+            echo "| macOS | amd64 (Intel) | [plugin-${PLUGIN_NAME}_${VERSION}_darwin_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_darwin_amd64.tar.gz) |" >> release_notes.md
+            echo "| macOS | arm64 (M1/M2) | [plugin-${PLUGIN_NAME}_${VERSION}_darwin_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_darwin_arm64.tar.gz) |" >> release_notes.md
+            echo "| Windows | amd64 | [plugin-${PLUGIN_NAME}_${VERSION}_windows_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_windows_amd64.tar.gz) |" >> release_notes.md
+            echo "| Windows | 386 | [plugin-${PLUGIN_NAME}_${VERSION}_windows_386.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_windows_386.tar.gz) |" >> release_notes.md
+            echo "| Windows | arm64 | [plugin-${PLUGIN_NAME}_${VERSION}_windows_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_windows_arm64.tar.gz) |" >> release_notes.md
+          else
+            VERSION=${GITHUB_REF_NAME#v}
+            echo "# Release v${VERSION}" > release_notes.md
+            echo "" >> release_notes.md
+            echo "## Downloads" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "### CLI" >> release_notes.md
+            echo "Download the CLI for your platform:" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "| OS | Architecture | Download |" >> release_notes.md
+            echo "|---|---|---|" >> release_notes.md
+            echo "| Linux | amd64 | [plugin-cli_${VERSION}_linux_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_linux_amd64.tar.gz) |" >> release_notes.md
+            echo "| Linux | 386 | [plugin-cli_${VERSION}_linux_386.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_linux_386.tar.gz) |" >> release_notes.md
+            echo "| Linux | arm64 | [plugin-cli_${VERSION}_linux_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_linux_arm64.tar.gz) |" >> release_notes.md
+            echo "| macOS | amd64 (Intel) | [plugin-cli_${VERSION}_darwin_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_darwin_amd64.tar.gz) |" >> release_notes.md
+            echo "| macOS | arm64 (M1/M2) | [plugin-cli_${VERSION}_darwin_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_darwin_arm64.tar.gz) |" >> release_notes.md
+            echo "| Windows | amd64 | [plugin-cli_${VERSION}_windows_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_windows_amd64.tar.gz) |" >> release_notes.md
+            echo "| Windows | 386 | [plugin-cli_${VERSION}_windows_386.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_windows_386.tar.gz) |" >> release_notes.md
+            echo "| Windows | arm64 | [plugin-cli_${VERSION}_windows_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_windows_arm64.tar.gz) |" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "### Plugins" >> release_notes.md
+            echo "All plugins are included in this release. Download individually as needed." >> release_notes.md
+          fi
+          
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo '```bash' >> release_notes.md
+          echo '# Download and extract' >> release_notes.md
+          echo 'tar -xzf <archive>.tar.gz' >> release_notes.md
+          echo '' >> release_notes.md
+          echo '# Move to .plugins directory (for plugins)' >> release_notes.md
+          echo 'mkdir -p .plugins' >> release_notes.md
+          echo 'mv plugin-* .plugins/' >> release_notes.md
+          echo 'chmod +x .plugins/plugin-*' >> release_notes.md
+          echo '```' >> release_notes.md
+          
+          echo "" >> release_notes.md
+          echo "## Checksums" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "SHA256 checksums are provided for each archive as \`.sha256\` files." >> release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release_notes.md
+          files: release/*
+          draft: false
+          prerelease: false

@@ -65,6 +65,12 @@ func DiscoverPlugins(paths []string) ([]DiscoveredPlugin, error) {
 			}
 
 			pluginName := strings.TrimPrefix(name, PluginPrefix)
+			
+			// Skip the CLI itself (plugin-cli is not a plugin)
+			if pluginName == "cli" {
+				continue
+			}
+			
 			plugins = append(plugins, DiscoveredPlugin{
 				Name: pluginName,
 				Path: pluginPath,
@@ -78,16 +84,12 @@ func DiscoverPlugins(paths []string) ([]DiscoveredPlugin, error) {
 func GetPluginPaths() []string {
 	paths := []string{}
 
-	homeDir, err := os.UserHomeDir()
-	if err == nil {
-		paths = append(paths, filepath.Join(homeDir, ".local", "share", "plugins"))
-	}
-
+	// Priority 1: Local .plugins directory (like .terraform)
 	if cwd, err := os.Getwd(); err == nil {
-		paths = append(paths, filepath.Join(cwd, "plugins"))
 		paths = append(paths, filepath.Join(cwd, ".plugins"))
 	}
 
+	// Priority 2: Environment variable paths
 	if envPath := os.Getenv("PLUGIN_PATH"); envPath != "" {
 		for _, p := range strings.Split(envPath, string(os.PathListSeparator)) {
 			if p != "" {
@@ -96,6 +98,18 @@ func GetPluginPaths() []string {
 		}
 	}
 
+	// Priority 3: Local plugins directory (for development)
+	if cwd, err := os.Getwd(); err == nil {
+		paths = append(paths, filepath.Join(cwd, "plugins"))
+	}
+
+	// Priority 4: User home directory
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		paths = append(paths, filepath.Join(homeDir, ".local", "share", "plugins"))
+	}
+
+	// Priority 5: System-wide location
 	paths = append(paths, "/usr/local/lib/plugins")
 
 	return paths

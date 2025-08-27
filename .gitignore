@@ -34,9 +34,10 @@ Thumbs.db
 # Plugin binaries
 plugins/plugin-*
 
-# Config files (keep examples)
+# Config files (keep examples and metadata)
 plugin-config.json
 config.json
+!plugin-metadata.json
 
 # Local plugin installations
 .plugins/

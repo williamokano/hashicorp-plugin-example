@@ -1,0 +1,22 @@
+{
+  "plugins": [
+    {
+      "name": "plugin-filter",
+      "version": "latest",
+      "checksum": "",
+      "url": ""
+    },
+    {
+      "name": "plugin-dummy",
+      "version": "latest",
+      "checksum": "",
+      "url": ""
+    },
+    {
+      "name": "plugin-converter",
+      "version": "latest",
+      "checksum": "",
+      "url": ""
+    }
+  ]
+}

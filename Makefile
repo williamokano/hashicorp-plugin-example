@@ -50,19 +50,54 @@ build-uploader-plugin: ## Build the file uploader plugin
 
 ##@ Installation
 
-install: build ## Install CLI and plugins to system directories
-	@echo "Installing plugins to ~/.local/share/plugins..."
-	mkdir -p ~/.local/share/plugins
-	cp bin/plugin-* ~/.local/share/plugins/
-	chmod +x ~/.local/share/plugins/plugin-*
+install: build ## Install CLI to system and plugins to local .plugins directory
+	@echo "Creating local .plugins directory (like .terraform)..."
+	mkdir -p .plugins
+	@echo "Installing plugins to .plugins/..."
+	cp bin/plugin-dummy .plugins/ 2>/dev/null || true
+	cp bin/plugin-filter .plugins/ 2>/dev/null || true
+	cp bin/plugin-converter .plugins/ 2>/dev/null || true
+	cp bin/plugin-uploader .plugins/ 2>/dev/null || true
+	chmod +x .plugins/plugin-* 2>/dev/null || true
 	@echo "Installing CLI to /usr/local/bin..."
 	sudo cp bin/plugin-cli /usr/local/bin/
 	sudo chmod +x /usr/local/bin/plugin-cli
+	@echo ""
+	@echo "Installation complete!"
+	@echo "CLI installed to: /usr/local/bin/plugin-cli"
+	@echo "Plugins installed to: ./.plugins/"
+	@echo ""
+	@echo "The .plugins directory is project-local (like .terraform)."
+	@echo "Add it to .gitignore to avoid committing binaries."
+
+install-local: build ## Install plugins to local .plugins directory (no sudo required)
+	@echo "Creating local .plugins directory..."
+	mkdir -p .plugins
+	@echo "Installing plugins to .plugins/..."
+	cp bin/plugin-dummy .plugins/ 2>/dev/null || true
+	cp bin/plugin-filter .plugins/ 2>/dev/null || true
+	cp bin/plugin-converter .plugins/ 2>/dev/null || true
+	cp bin/plugin-uploader .plugins/ 2>/dev/null || true
+	chmod +x .plugins/plugin-*
+	@echo ""
+	@echo "Local installation complete!"
+	@echo "Plugins installed to: ./.plugins/"
+	@echo "CLI binary available at: ./bin/plugin-cli"
+	@echo "Run with: ./bin/plugin-cli"
+
+uninstall: ## Uninstall CLI from system directory
+	@echo "Removing CLI from /usr/local/bin..."
+	sudo rm -f /usr/local/bin/plugin-cli
+	@echo "CLI uninstalled successfully"
 
 clean: ## Remove build artifacts and generated files
 	@echo "Cleaning..."
 	rm -rf bin/
 	rm -f coverage.out coverage.html
+
+clean-all: clean ## Remove everything including .plugins directory
+	@echo "Removing .plugins directory..."
+	rm -rf .plugins/
 
 ##@ Testing
 
