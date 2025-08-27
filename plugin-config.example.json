@@ -1,0 +1,22 @@
+{
+  "plugins": [
+    {
+      "name": "dummy",
+      "repository": "williamokano/plugin-dummy",
+      "version": "v1.0.0",
+      "enabled": true
+    },
+    {
+      "name": "example",
+      "repository": "example/plugin-example",
+      "version": "latest",
+      "enabled": false
+    }
+  ],
+  "plugin_paths": [
+    "~/.local/share/plugins",
+    "./plugins",
+    "/usr/local/lib/plugins"
+  ],
+  "auto_download": true
+}

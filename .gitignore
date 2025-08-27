@@ -1,0 +1,50 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage tool
+*.out
+
+# Go workspace files
+go.work
+
+# Dependency directories
+vendor/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated protobuf files
+*.pb.go
+
+# Plugin binaries
+plugins/plugin-*
+
+# Config files (keep examples)
+plugin-config.json
+config.json
+
+# Local plugin installations
+.plugins/
+
+# Build artifacts
+dist/
+
+# Test coverage
+coverage.out
+coverage.html
+*.test
