@@ -205,8 +205,8 @@ deps: ## Download and install dependencies
 		echo "golangci-lint v2.4.0 already installed"; \
 	fi
 	@echo "Installing security tools..."
-	go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
-	go install golang.org/x/vuln/cmd/govulncheck@v1.1.3
+	go install github.com/securego/gosec/v2/cmd/gosec@v2.22.8
+	go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
 	@echo "Installing code analysis tools..."
 	go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
 	go install github.com/gordonklaus/ineffassign@v0.1.0

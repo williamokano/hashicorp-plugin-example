@@ -12,8 +12,8 @@ Both `make deps` and GitHub Actions CI use the same versions to ensure consisten
 
 ### Linting and Code Quality
 - **golangci-lint**: v2.4.0
-- **gosec**: v2.21.4
-- **govulncheck**: v1.1.3
+- **gosec**: v2.22.8
+- **govulncheck**: v1.1.4
 - **gocyclo**: v0.6.0
 - **ineffassign**: v0.1.0
 
