@@ -2,7 +2,7 @@ module github.com/williamokano/hashicorp-plugin-example
 
 go 1.24
 
-toolchain go1.24.5
+toolchain go1.24.6
 
 require (
 	github.com/hashicorp/go-hclog v1.6.3
