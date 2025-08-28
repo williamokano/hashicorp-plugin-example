@@ -28,8 +28,6 @@ vendor/
 .DS_Store
 Thumbs.db
 
-# Generated protobuf files
-*.pb.go
 
 # Plugin binaries
 plugins/plugin-*
