@@ -67,17 +67,17 @@ Shows plugin name, priority, version, and description.`,
 			// Load each plugin to get metadata
 			mgr := plugin.NewManager()
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-			fmt.Fprintln(w, "NAME\tPRIORITY\tVERSION\tDESCRIPTION")
-			fmt.Fprintln(w, "----\t--------\t-------\t-----------")
+			_, _ = fmt.Fprintln(w, "NAME\tPRIORITY\tVERSION\tDESCRIPTION")
+			_, _ = fmt.Fprintln(w, "----\t--------\t-------\t-----------")
 
 			for _, p := range plugins {
 				client, plugin, err := mgr.LoadPluginFromPath(p.Path)
 				if err != nil {
-					fmt.Fprintf(w, "%s\t?\t?\tError: %v\n", p.Name, err)
+					_, _ = fmt.Fprintf(w, "%s\t?\t?\tError: %v\n", p.Name, err)
 					continue
 				}
 
-				fmt.Fprintf(w, "%s\t%d\t%s\t%s\n",
+				_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n",
 					plugin.Name(),
 					plugin.Priority(),
 					plugin.Version(),
@@ -177,7 +177,7 @@ func newPluginRemoveCommand() *cobra.Command {
 				var response string
 				_, _ = fmt.Scanln(&response)
 				if response != "y" && response != "Y" {
-					fmt.Println("Cancelled")
+					fmt.Println("Canceled")
 					return nil
 				}
 			}
@@ -206,7 +206,7 @@ func newPluginPathsCommand() *cobra.Command {
 		Use:   "paths",
 		Short: "Show plugin discovery paths",
 		Long:  `Display all paths where the CLI searches for plugins.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			fmt.Println("Plugin discovery paths:")
 			for i, path := range discovery.GetPluginPaths() {
 				// Check if path exists

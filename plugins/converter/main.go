@@ -15,6 +15,11 @@ var (
 	BuildTime = "unknown"
 )
 
+const (
+	mediaTypeVideo = "video"
+	mediaTypeImage = "image"
+)
+
 type ConverterPlugin struct{}
 
 func (p *ConverterPlugin) ShouldExecute(ctx context.Context, context *shared.Context) shared.ExecutionDecision {
@@ -37,7 +42,7 @@ func (p *ConverterPlugin) ShouldExecute(ctx context.Context, context *shared.Con
 	}
 
 	// We can handle video and image
-	if mediaType == "video" || mediaType == "image" {
+	if mediaType == mediaTypeVideo || mediaType == mediaTypeImage {
 		return shared.ExecutionDecision{
 			ShouldExecute: true,
 			Reason:        fmt.Sprintf("Ready to convert %s", mediaType),
@@ -57,7 +62,7 @@ func (p *ConverterPlugin) Process(ctx context.Context, context *shared.Context) 
 	var outputFile string
 	var conversionDetails map[string]interface{}
 
-	if mediaType == "video" {
+	if mediaType == mediaTypeVideo {
 		outputFile = fmt.Sprintf("/tmp/converted_%d.mp4", time.Now().Unix())
 		conversionDetails = map[string]interface{}{
 			"format":     "mp4",

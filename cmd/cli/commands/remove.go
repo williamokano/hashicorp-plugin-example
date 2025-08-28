@@ -11,10 +11,14 @@ import (
 	"github.com/williamokano/hashicorp-plugin-example/pkg/config"
 )
 
-var removeCmd = &cobra.Command{
-	Use:   "remove [plugin-name]",
-	Short: "Remove a plugin from the project",
-	Long: `Remove a plugin from the project.
+// NewRemoveCommand creates the remove command
+func NewRemoveCommand() *cobra.Command {
+	var keepBinary bool
+
+	cmd := &cobra.Command{
+		Use:   "remove [plugin-name]",
+		Short: "Remove a plugin from the project",
+		Long: `Remove a plugin from the project.
 
 This command:
   1. Removes the plugin binary from .plugins/
@@ -24,21 +28,18 @@ This command:
 Examples:
   plugin-cli remove dummy
   plugin-cli remove plugin-filter`,
-	Aliases: []string{"rm", "uninstall"},
-	Args:    cobra.ExactArgs(1),
-	RunE:    runRemove,
+		Aliases: []string{"rm", "uninstall"},
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRemove(cmd, args, keepBinary)
+		},
+	}
+
+	cmd.Flags().BoolVar(&keepBinary, "keep-binary", false, "Keep the plugin binary in .plugins/")
+	return cmd
 }
 
-var (
-	keepBinary bool
-)
-
-func init() {
-	removeCmd.Flags().BoolVar(&keepBinary, "keep-binary", false, "Keep the plugin binary in .plugins/")
-	rootCmd.AddCommand(removeCmd)
-}
-
-func runRemove(cmd *cobra.Command, args []string) error {
+func runRemove(_ *cobra.Command, args []string, keepBinary bool) error {
 	// Check if project is initialized
 	if !config.IsProjectInitialized() {
 		return fmt.Errorf("no plugins.json found. Run 'plugin-cli init' first")

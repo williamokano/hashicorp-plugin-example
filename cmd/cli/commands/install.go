@@ -96,7 +96,7 @@ func runInstallAll(cmd *cobra.Command, args []string) error {
 	}
 
 	// Prepare download items
-	var downloadItems []download.DownloadItem
+	downloadItems := make([]download.DownloadItem, 0, len(cfg.Plugins))
 	skipped := 0
 
 	for pluginName, versionSpec := range cfg.Plugins {
@@ -218,7 +218,7 @@ func parseVersionSpec(spec string) string {
 	return spec
 }
 
-func installPluginWithItem(item download.DownloadItem, repo string) error {
+func installPluginWithItem(item download.DownloadItem, _ /* repo */ string) error {
 	osName := runtime.GOOS
 	archName := runtime.GOARCH
 

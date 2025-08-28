@@ -8,29 +8,30 @@ import (
 	"github.com/williamokano/hashicorp-plugin-example/pkg/config"
 )
 
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize a new plugins configuration",
-	Long: `Initialize a new plugins.json configuration file in the current directory.
+// NewInitCommand creates the init command
+func NewInitCommand() *cobra.Command {
+	var forceInit bool
+
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Initialize a new plugins configuration",
+		Long: `Initialize a new plugins.json configuration file in the current directory.
 
 This command creates:
   - plugins.json: Plugin dependency configuration
   - .plugins/: Directory for plugin binaries
 
 Similar to 'npm init', this sets up your project for plugin management.`,
-	RunE: runInit,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInit(cmd, args, forceInit)
+		},
+	}
+
+	cmd.Flags().BoolVarP(&forceInit, "force", "f", false, "Force initialization, overwrite existing files")
+	return cmd
 }
 
-var (
-	forceInit bool
-)
-
-func init() {
-	initCmd.Flags().BoolVarP(&forceInit, "force", "f", false, "Force initialization, overwrite existing files")
-	rootCmd.AddCommand(initCmd)
-}
-
-func runInit(cmd *cobra.Command, args []string) error {
+func runInit(_ *cobra.Command, _ []string, forceInit bool) error {
 	// Check if already initialized
 	if config.IsProjectInitialized() && !forceInit {
 		fmt.Println("Project already initialized with plugins.json")

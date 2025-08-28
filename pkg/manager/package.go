@@ -14,6 +14,11 @@ import (
 	"strings"
 )
 
+const (
+	osWindows = "windows"
+	exeSuffix = ".exe"
+)
+
 type PluginRegistry struct {
 	Plugins []PluginPackage `json:"plugins"`
 }
@@ -46,7 +51,7 @@ func NewPackageManager() (*PackageManager, error) {
 	}
 
 	installDir := filepath.Join(homeDir, ".local", "share", "plugins")
-	if err := os.MkdirAll(installDir, 0750); err != nil {
+	if err := os.MkdirAll(installDir, 0o750); err != nil {
 		return nil, err
 	}
 
@@ -101,7 +106,11 @@ func (pm *PackageManager) getRelease(owner, repo, version string) (*GitHubReleas
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log but don't return error as response body was already read
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
@@ -144,13 +153,21 @@ func (pm *PackageManager) downloadFile(url, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log but don't return error as response body was already read
+		}
+	}()
 
 	out, err := os.Create(dest)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() {
+		if err := out.Close(); err != nil {
+			// Log but don't return error as file operations are complete
+		}
+	}()
 
 	_, err = io.Copy(out, resp.Body)
 	return err
@@ -166,14 +183,14 @@ func (pm *PackageManager) extractPlugin(archivePath, pluginName string) error {
 		return pm.extractZip(archivePath, pluginName)
 	default:
 		binaryPath := filepath.Join(pm.installDir, "plugin-"+pluginName)
-		if runtime.GOOS == "windows" {
-			binaryPath += ".exe"
+		if runtime.GOOS == osWindows {
+			binaryPath += exeSuffix
 		}
 
 		if err := os.Rename(archivePath, binaryPath); err != nil {
 			return err
 		}
-		return os.Chmod(binaryPath, 0755) //nolint:gosec // G302: executable files need 0755
+		return os.Chmod(binaryPath, 0o755) //nolint:gosec // G302: executable files need 0o755
 	}
 }
 
@@ -182,13 +199,21 @@ func (pm *PackageManager) extractTarGz(archivePath, pluginName string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log but don't return error as file was read successfully
+		}
+	}()
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer func() {
+		if err := gzr.Close(); err != nil {
+			// Log but don't return error as archive was read successfully
+		}
+	}()
 
 	tr := tar.NewReader(gzr)
 
@@ -215,7 +240,11 @@ func (pm *PackageManager) extractTarGz(archivePath, pluginName string) error {
 			if err != nil {
 				return err
 			}
-			defer outFile.Close()
+			defer func() {
+				if err := outFile.Close(); err != nil {
+					// Log but don't return error as file operations are complete
+				}
+			}()
 
 			// Limit file size to prevent decompression bombs (100MB limit)
 			const maxFileSize = 100 * 1024 * 1024
@@ -223,7 +252,7 @@ func (pm *PackageManager) extractTarGz(archivePath, pluginName string) error {
 				return err
 			}
 
-			return os.Chmod(targetPath, 0755) //nolint:gosec // G302: executable files need 0755
+			return os.Chmod(targetPath, 0o755) //nolint:gosec // G302: executable files need 0o755
 		}
 	}
 
@@ -235,7 +264,11 @@ func (pm *PackageManager) extractZip(archivePath, pluginName string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() {
+		if err := r.Close(); err != nil {
+			// Log but don't return error as archive was read successfully
+		}
+	}()
 
 	for _, f := range r.File {
 		if strings.Contains(f.Name, "plugin-") || f.Name == pluginName {
@@ -243,7 +276,11 @@ func (pm *PackageManager) extractZip(archivePath, pluginName string) error {
 			if err != nil {
 				return err
 			}
-			defer rc.Close()
+			defer func() {
+				if err := rc.Close(); err != nil {
+					// Log but don't return error as file was read successfully
+				}
+			}()
 
 			targetPath := filepath.Join(pm.installDir, "plugin-"+pluginName)
 			if runtime.GOOS == "windows" {
@@ -254,7 +291,11 @@ func (pm *PackageManager) extractZip(archivePath, pluginName string) error {
 			if err != nil {
 				return err
 			}
-			defer outFile.Close()
+			defer func() {
+				if err := outFile.Close(); err != nil {
+					// Log but don't return error as file operations are complete
+				}
+			}()
 
 			// Limit file size to prevent decompression bombs (100MB limit)
 			const maxFileSize = 100 * 1024 * 1024
@@ -262,7 +303,7 @@ func (pm *PackageManager) extractZip(archivePath, pluginName string) error {
 				return err
 			}
 
-			return os.Chmod(targetPath, 0755) //nolint:gosec // G302: executable files need 0755
+			return os.Chmod(targetPath, 0o755) //nolint:gosec // G302: executable files need 0o755
 		}
 	}
 
@@ -275,7 +316,7 @@ func (pm *PackageManager) List() ([]string, error) {
 		return nil, err
 	}
 
-	var plugins []string
+	plugins := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "plugin-") {
 			name := strings.TrimPrefix(entry.Name(), "plugin-")

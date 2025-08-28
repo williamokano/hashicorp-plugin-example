@@ -38,6 +38,11 @@ func init() {
 		NewProcessCommand(),
 		NewInstallCommand(),
 		NewSimulateCommand(),
+		NewInitCommand(),
+		NewAddCommand(),
+		NewRemoveCommand(),
+		NewDownloadCommand(),
+		NewRegistryCommand(),
 	)
 
 	// Global flags (if any)

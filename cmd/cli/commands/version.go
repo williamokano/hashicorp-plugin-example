@@ -14,7 +14,7 @@ func NewVersionCommand() *cobra.Command {
 		Use:   "version",
 		Short: "Print CLI version information",
 		Long:  `Display the CLI version, build time, and other version-related information.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			fmt.Printf("CLI Version: %s\n", version.CLIVersion)
 			fmt.Printf("Build Time: %s\n", version.CLIBuildTime)
 			fmt.Printf("Go Version: %s\n", runtime.Version())

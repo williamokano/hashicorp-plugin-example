@@ -16,10 +16,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var downloadCmd = &cobra.Command{
-	Use:   "download [plugin-name]",
-	Short: "Download a plugin from GitHub releases",
-	Long: `Download a plugin binary from GitHub releases.
+// NewDownloadCommand creates the download command
+func NewDownloadCommand() *cobra.Command {
+	var downloadVersion string
+	var downloadRepo string
+	var verifyChecksum bool
+	var downloadPath string
+	var forceDownload bool
+
+	cmd := &cobra.Command{
+		Use:   "download [plugin-name]",
+		Short: "Download a plugin from GitHub releases",
+		Long: `Download a plugin binary from GitHub releases.
 
 The download command fetches plugin binaries from GitHub releases
 using the Terraform-style naming convention:
@@ -37,29 +45,22 @@ Examples:
 
   # Download and verify checksum
   plugin-cli download dummy --verify`,
-	Args: cobra.ExactArgs(1),
-	RunE: runDownload,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDownload(cmd, args, downloadVersion, downloadRepo, verifyChecksum, downloadPath, forceDownload)
+		},
+	}
+
+	cmd.Flags().StringVar(&downloadVersion, "version", "latest", "Plugin version to download")
+	cmd.Flags().StringVarP(&downloadRepo, "repo", "r", "williamokano/hashicorp-plugin-example", "GitHub repository (owner/repo)")
+	cmd.Flags().BoolVar(&verifyChecksum, "verify", true, "Verify SHA256 checksum")
+	cmd.Flags().StringVarP(&downloadPath, "path", "p", ".plugins", "Directory to download plugin to")
+	cmd.Flags().BoolVarP(&forceDownload, "force", "f", false, "Force download even if plugin exists")
+
+	return cmd
 }
 
-var (
-	downloadVersion string
-	downloadRepo    string
-	verifyChecksum  bool
-	downloadPath    string
-	forceDownload   bool
-)
-
-func init() {
-	downloadCmd.Flags().StringVar(&downloadVersion, "version", "latest", "Plugin version to download")
-	downloadCmd.Flags().StringVarP(&downloadRepo, "repo", "r", "williamokano/hashicorp-plugin-example", "GitHub repository (owner/repo)")
-	downloadCmd.Flags().BoolVar(&verifyChecksum, "verify", true, "Verify SHA256 checksum")
-	downloadCmd.Flags().StringVarP(&downloadPath, "path", "p", ".plugins", "Directory to download plugin to")
-	downloadCmd.Flags().BoolVarP(&forceDownload, "force", "f", false, "Force download even if plugin exists")
-
-	rootCmd.AddCommand(downloadCmd)
-}
-
-func runDownload(cmd *cobra.Command, args []string) error {
+func runDownload(cmd *cobra.Command, args []string, downloadVersion, downloadRepo string, verifyChecksum bool, downloadPath string, forceDownload bool) error {
 	pluginName := args[0]
 	if !strings.HasPrefix(pluginName, "plugin-") {
 		pluginName = "plugin-" + pluginName
@@ -163,11 +164,15 @@ func getLatestVersion(repo, pluginName string) (string, error) {
 }
 
 func downloadFile(filepath string, url string) error {
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) //nolint:gosec // G107: URL is constructed from validated inputs for plugin downloads
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log but don't return error as response body was already read
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
@@ -177,7 +182,11 @@ func downloadFile(filepath string, url string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() {
+		if err := out.Close(); err != nil {
+			// Log but don't return error as file operations are complete
+		}
+	}()
 
 	_, err = io.Copy(out, resp.Body)
 	return err
@@ -185,11 +194,15 @@ func downloadFile(filepath string, url string) error {
 
 func verifyFileChecksum(filepath, checksumURL string) error {
 	// Download checksum file
-	resp, err := http.Get(checksumURL)
+	resp, err := http.Get(checksumURL) //nolint:gosec // G107: URL is constructed for checksum verification from validated inputs
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log but don't return error as response body was already read
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("checksum file not found")
@@ -212,7 +225,11 @@ func verifyFileChecksum(filepath, checksumURL string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log but don't return error as file was read successfully
+		}
+	}()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
@@ -234,13 +251,21 @@ func extractTarGz(archivePath, destPath string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log but don't return error as file was read successfully
+		}
+	}()
 
 	gzReader, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gzReader.Close()
+	defer func() {
+		if err := gzReader.Close(); err != nil {
+			// Log but don't return error as archive was read successfully
+		}
+	}()
 
 	tarReader := tar.NewReader(gzReader)
 

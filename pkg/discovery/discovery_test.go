@@ -36,7 +36,7 @@ func TestDiscoverPlugins(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				createExecutableFile(t, filepath.Join(dir, "plugin-valid"))
-				err := os.Mkdir(filepath.Join(dir, "plugin-directory"), 0755)
+				err := os.Mkdir(filepath.Join(dir, "plugin-directory"), 0o755)
 				require.NoError(t, err)
 				return dir
 			},
@@ -116,8 +116,10 @@ func TestFindPlugin(t *testing.T) {
 
 	// Save original environment and set test path
 	oldPluginPath := os.Getenv("PLUGIN_PATH")
-	os.Setenv("PLUGIN_PATH", dir)
-	defer os.Setenv("PLUGIN_PATH", oldPluginPath)
+	_ = os.Setenv("PLUGIN_PATH", dir)
+	defer func() {
+		_ = os.Setenv("PLUGIN_PATH", oldPluginPath)
+	}()
 
 	tests := []struct {
 		name       string
@@ -161,8 +163,8 @@ func TestGetPluginPaths(t *testing.T) {
 	originalHome := os.Getenv("HOME")
 	originalPluginPath := os.Getenv("PLUGIN_PATH")
 	defer func() {
-		os.Setenv("HOME", originalHome)
-		os.Setenv("PLUGIN_PATH", originalPluginPath)
+		_ = os.Setenv("HOME", originalHome)
+		_ = os.Setenv("PLUGIN_PATH", originalPluginPath)
 	}()
 
 	tests := []struct {
@@ -173,8 +175,8 @@ func TestGetPluginPaths(t *testing.T) {
 		{
 			name: "includes home directory path",
 			setup: func() {
-				os.Setenv("HOME", "/test/home")
-				os.Unsetenv("PLUGIN_PATH")
+				_ = os.Setenv("HOME", "/test/home")
+				_ = os.Unsetenv("PLUGIN_PATH")
 			},
 			wantPaths: []string{
 				"/test/home/.local/share/plugins",
@@ -183,7 +185,7 @@ func TestGetPluginPaths(t *testing.T) {
 		{
 			name: "includes PLUGIN_PATH environment variable",
 			setup: func() {
-				os.Setenv("PLUGIN_PATH", "/custom/path:/another/path")
+				_ = os.Setenv("PLUGIN_PATH", "/custom/path:/another/path")
 			},
 			wantPaths: []string{
 				"/custom/path",
@@ -193,7 +195,7 @@ func TestGetPluginPaths(t *testing.T) {
 		{
 			name: "includes system path",
 			setup: func() {
-				os.Unsetenv("PLUGIN_PATH")
+				_ = os.Unsetenv("PLUGIN_PATH")
 			},
 			wantPaths: []string{
 				"/usr/local/lib/plugins",
@@ -219,9 +221,13 @@ func createExecutableFile(t *testing.T, path string) {
 	t.Helper()
 	file, err := os.Create(path)
 	require.NoError(t, err)
-	file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log but don't fail test as file operations are complete
+		}
+	}()
 
-	err = os.Chmod(path, 0755)
+	err = os.Chmod(path, 0o755)
 	require.NoError(t, err)
 }
 
@@ -229,8 +235,12 @@ func createNonExecutableFile(t *testing.T, path string) {
 	t.Helper()
 	file, err := os.Create(path)
 	require.NoError(t, err)
-	file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log but don't fail test as file operations are complete
+		}
+	}()
 
-	err = os.Chmod(path, 0644)
+	err = os.Chmod(path, 0o644)
 	require.NoError(t, err)
 }

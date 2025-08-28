@@ -9,6 +9,11 @@ import (
 )
 
 const (
+	osWindows = "windows"
+	exeSuffix = ".exe"
+)
+
+const (
 	PluginPrefix = "plugin-"
 )
 
@@ -42,11 +47,11 @@ func DiscoverPlugins(paths []string) ([]DiscoveredPlugin, error) {
 
 			name := entry.Name()
 
-			if runtime.GOOS == "windows" {
-				if !strings.HasSuffix(name, ".exe") {
+			if runtime.GOOS == osWindows {
+				if !strings.HasSuffix(name, exeSuffix) {
 					continue
 				}
-				name = strings.TrimSuffix(name, ".exe")
+				name = strings.TrimSuffix(name, exeSuffix)
 			}
 
 			if !strings.HasPrefix(name, PluginPrefix) {
@@ -60,7 +65,7 @@ func DiscoverPlugins(paths []string) ([]DiscoveredPlugin, error) {
 				continue
 			}
 
-			if info.Mode()&0111 == 0 {
+			if info.Mode()&0o111 == 0 {
 				continue
 			}
 

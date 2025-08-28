@@ -11,10 +11,24 @@ import (
 	"github.com/williamokano/hashicorp-plugin-example/pkg/config"
 )
 
-var addCmd = &cobra.Command{
-	Use:   "add [plugin-name]",
-	Short: "Add a plugin to the project",
-	Long: `Add a plugin to the project and download it.
+const (
+	versionLatest  = "latest"
+	osWindows      = "windows"
+	exeSuffix      = ".exe"
+	defaultVersion = "1.0.0"
+	pluginCLI      = "plugin-cli"
+)
+
+// NewAddCommand creates the add command
+func NewAddCommand() *cobra.Command {
+	var addRepo string
+	var saveExact bool
+	var skipDownload bool
+
+	cmd := &cobra.Command{
+		Use:   "add [plugin-name]",
+		Short: "Add a plugin to the project",
+		Long: `Add a plugin to the project and download it.
 
 This command:
   1. Downloads the plugin binary
@@ -25,25 +39,20 @@ Examples:
   plugin-cli add dummy              # Add latest version
   plugin-cli add dummy@1.0.0        # Add specific version
   plugin-cli add dummy --save-exact # Save exact version`,
-	Args: cobra.ExactArgs(1),
-	RunE: runAdd,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runAdd(cmd, args, addRepo, saveExact, skipDownload)
+		},
+	}
+
+	cmd.Flags().StringVarP(&addRepo, "repo", "r", "williamokano/hashicorp-plugin-example", "GitHub repository")
+	cmd.Flags().BoolVar(&saveExact, "save-exact", false, "Save exact version in plugins.json")
+	cmd.Flags().BoolVar(&skipDownload, "skip-download", false, "Only update plugins.json without downloading")
+
+	return cmd
 }
 
-var (
-	addRepo      string
-	saveExact    bool
-	skipDownload bool
-)
-
-func init() {
-	addCmd.Flags().StringVarP(&addRepo, "repo", "r", "williamokano/hashicorp-plugin-example", "GitHub repository")
-	addCmd.Flags().BoolVar(&saveExact, "save-exact", false, "Save exact version in plugins.json")
-	addCmd.Flags().BoolVar(&skipDownload, "skip-download", false, "Only update plugins.json without downloading")
-
-	rootCmd.AddCommand(addCmd)
-}
-
-func runAdd(cmd *cobra.Command, args []string) error {
+func runAdd(cmd *cobra.Command, args []string, addRepo string, saveExact bool, skipDownload bool) error {
 	// Check if project is initialized
 	if !config.IsProjectInitialized() {
 		return fmt.Errorf("no plugins.json found. Run 'plugin-cli init' first")
@@ -83,7 +92,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 
 	// Update plugins.json
 	versionToSave := version
-	if !saveExact && version != "latest" {
+	if !saveExact && version != versionLatest {
 		// Could use semver ranges here in the future
 		versionToSave = "^" + version
 	}
@@ -137,15 +146,15 @@ func downloadPlugin(pluginName, version, repo string) error {
 
 	// Check if plugin already exists
 	pluginPath := filepath.Join(pluginsDir, pluginName)
-	if runtime.GOOS == "windows" {
-		pluginPath += ".exe"
+	if runtime.GOOS == osWindows {
+		pluginPath += exeSuffix
 	}
 
 	// Get actual version if "latest"
 	actualVersion := version
 	if version == "latest" {
 		// In a real implementation, this would query GitHub API
-		actualVersion = "1.0.0"
+		actualVersion = defaultVersion
 	}
 
 	// Download using existing download logic
@@ -154,7 +163,7 @@ func downloadPlugin(pluginName, version, repo string) error {
 		repo, actualVersion, archiveName)
 
 	// For plugin-specific releases
-	if pluginName != "plugin-cli" {
+	if pluginName != pluginCLI {
 		shortName := strings.TrimPrefix(pluginName, "plugin-")
 		altURL := fmt.Sprintf("https://github.com/%s/releases/download/plugin-%s-v%s/%s",
 			repo, shortName, actualVersion, archiveName)
@@ -172,7 +181,7 @@ func downloadPlugin(pluginName, version, repo string) error {
 	return nil
 }
 
-func downloadAndExtract(url, destDir, pluginPath string) error {
+func downloadAndExtract(url, _ /* destDir */, pluginPath string) error {
 	// Simulated download for now - would use actual download logic
 	fmt.Printf("  Attempting download from: %s\n", url)
 
@@ -205,7 +214,7 @@ func updateLockFile(pluginName, version, repo string) error {
 	// Get actual version if "latest"
 	actualVersion := version
 	if version == "latest" {
-		actualVersion = "1.0.0" // Would query GitHub API
+		actualVersion = defaultVersion // Would query GitHub API
 	}
 
 	osName := runtime.GOOS

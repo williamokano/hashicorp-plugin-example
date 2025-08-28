@@ -130,7 +130,7 @@ quality: lint vet security ## Run all quality checks
 lint: ## Run golangci-lint
 	@echo "Running golangci-lint..."
 	@which golangci-lint > /dev/null || (echo "golangci-lint not installed. Run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest" && exit 1)
-	golangci-lint run --timeout 5m
+	golangci-lint run --config .golangci.yml --timeout 5m
 
 vet: ## Run go vet
 	@echo "Running go vet..."

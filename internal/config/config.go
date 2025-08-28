@@ -25,7 +25,7 @@ func Load(path string) (*Config, error) {
 		path = getDefaultConfigPath()
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path is validated config file path
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Config{
@@ -51,7 +51,7 @@ func (c *Config) Save(path string) error {
 	}
 
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
 
@@ -60,7 +60,7 @@ func (c *Config) Save(path string) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0600)
+	return os.WriteFile(path, data, 0o600)
 }
 
 func getDefaultConfigPath() string {

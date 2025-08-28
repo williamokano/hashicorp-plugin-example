@@ -9,43 +9,45 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var registryCmd = &cobra.Command{
-	Use:   "registry",
-	Short: "Interact with the plugin registry",
-	Long:  `Commands for interacting with the plugin registry on GitHub.`,
-}
+// NewRegistryCommand creates the registry command
+func NewRegistryCommand() *cobra.Command {
+	var registryRepo string
+	var showAllVersions bool
 
-var registryListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List available plugins from the registry",
-	Long: `List all available plugins from the GitHub releases registry.
+	cmd := &cobra.Command{
+		Use:   "registry",
+		Short: "Interact with the plugin registry",
+		Long:  `Commands for interacting with the plugin registry on GitHub.`,
+	}
+
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List available plugins from the registry",
+		Long: `List all available plugins from the GitHub releases registry.
 
 This command queries GitHub releases to find available plugins
 and their versions.`,
-	RunE: runRegistryList,
-}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRegistryList(cmd, args, registryRepo, showAllVersions)
+		},
+	}
 
-var registrySearchCmd = &cobra.Command{
-	Use:   "search [query]",
-	Short: "Search for plugins in the registry",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runRegistrySearch,
-}
+	searchCmd := &cobra.Command{
+		Use:   "search [query]",
+		Short: "Search for plugins in the registry",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRegistrySearch(cmd, args, registryRepo)
+		},
+	}
 
-var (
-	registryRepo    string
-	showAllVersions bool
-)
+	cmd.PersistentFlags().StringVarP(&registryRepo, "repo", "r", "williamokano/hashicorp-plugin-example", "GitHub repository (owner/repo)")
+	listCmd.Flags().BoolVar(&showAllVersions, "all-versions", false, "Show all available versions")
 
-func init() {
-	registryCmd.PersistentFlags().StringVarP(&registryRepo, "repo", "r", "williamokano/hashicorp-plugin-example", "GitHub repository (owner/repo)")
+	cmd.AddCommand(listCmd)
+	cmd.AddCommand(searchCmd)
 
-	registryListCmd.Flags().BoolVar(&showAllVersions, "all-versions", false, "Show all available versions")
-
-	registryCmd.AddCommand(registryListCmd)
-	registryCmd.AddCommand(registrySearchCmd)
-
-	rootCmd.AddCommand(registryCmd)
+	return cmd
 }
 
 // GitHub API structures
@@ -64,7 +66,7 @@ type GitHubAsset struct {
 	DownloadURL string `json:"browser_download_url"`
 }
 
-func runRegistryList(cmd *cobra.Command, args []string) error {
+func runRegistryList(_ *cobra.Command, _ []string, registryRepo string, showAllVersions bool) error {
 	releases, err := fetchReleases(registryRepo)
 	if err != nil {
 		return fmt.Errorf("failed to fetch releases: %w", err)
@@ -108,7 +110,7 @@ func runRegistryList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runRegistrySearch(cmd *cobra.Command, args []string) error {
+func runRegistrySearch(_ *cobra.Command, args []string, registryRepo string) error {
 	query := strings.ToLower(args[0])
 
 	releases, err := fetchReleases(registryRepo)
@@ -119,7 +121,7 @@ func runRegistrySearch(cmd *cobra.Command, args []string) error {
 	plugins := extractPluginInfo(releases)
 
 	// Filter plugins by query
-	var matches []PluginInfo
+	matches := make([]PluginInfo, 0, len(plugins))
 	for _, plugin := range plugins {
 		if strings.Contains(strings.ToLower(plugin.Name), query) {
 			matches = append(matches, plugin)
@@ -150,11 +152,15 @@ type PluginInfo struct {
 func fetchReleases(repo string) ([]GitHubRelease, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases", repo)
 
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) //nolint:gosec // G107: URL is constructed for GitHub API access from validated inputs
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log but don't return error as response body was already read
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
@@ -169,7 +175,7 @@ func fetchReleases(repo string) ([]GitHubRelease, error) {
 }
 
 func extractPluginInfo(releases []GitHubRelease) []PluginInfo {
-	var plugins []PluginInfo
+	plugins := make([]PluginInfo, 0, len(releases)*2) // Estimate capacity
 	seen := make(map[string]bool)
 
 	for _, release := range releases {

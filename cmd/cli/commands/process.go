@@ -92,11 +92,12 @@ func runProcess(content string, flags *ProcessFlags) error {
 	}
 
 	// Output results
-	if flags.OutputJSON {
+	switch {
+	case flags.OutputJSON:
 		outputJSON(ctx)
-	} else if !flags.Quiet {
+	case !flags.Quiet:
 		outputFormatted(ctx)
-	} else {
+	default:
 		outputMinimal(ctx)
 	}
 
