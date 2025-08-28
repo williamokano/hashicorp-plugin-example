@@ -43,7 +43,8 @@ jobs:
           GOARCH: ${{ matrix.arch }}
 
       - name: Run tests with coverage
-        run: go test -coverprofile=coverage.out ./...
+        run: |
+          go test -coverprofile=coverage.out ./...
         env:
           GOARCH: ${{ matrix.arch }}
 
