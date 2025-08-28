@@ -1,7 +1,7 @@
 {
   "plugins": {
     "plugin-converter": "latest",
-    "plugin-dummy": "latest",
-    "plugin-filter": "latest"
+    "plugin-dummy": "^1.0.0",
+    "plugin-filter": "^1.0.0"
   }
 }

@@ -123,6 +123,53 @@ test-race: ## Run tests with race condition detector
 	@echo "Running tests with race detector..."
 	go test -race ./...
 
+##@ Code Quality
+
+quality: lint vet security ## Run all quality checks
+
+lint: ## Run golangci-lint
+	@echo "Running golangci-lint..."
+	@which golangci-lint > /dev/null || (echo "golangci-lint not installed. Run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest" && exit 1)
+	golangci-lint run --timeout 5m
+
+vet: ## Run go vet
+	@echo "Running go vet..."
+	go vet ./...
+
+security: ## Run security scan with gosec
+	@echo "Running security scan..."
+	@which gosec > /dev/null || (echo "gosec not installed. Run: go install github.com/securego/gosec/v2/cmd/gosec@latest" && exit 1)
+	gosec -fmt text -confidence medium ./...
+
+vulncheck: ## Check for known vulnerabilities
+	@echo "Checking for vulnerabilities..."
+	@which govulncheck > /dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
+	govulncheck ./...
+
+complexity: ## Check cyclomatic complexity
+	@echo "Checking cyclomatic complexity..."
+	@which gocyclo > /dev/null || go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+	@echo "Functions with complexity > 10:"
+	@gocyclo -over 10 . || true
+
+ineffassign: ## Check for ineffective assignments
+	@echo "Checking for ineffective assignments..."
+	@which ineffassign > /dev/null || go install github.com/gordonklaus/ineffassign@latest
+	ineffassign ./...
+
+fmt-check: ## Check if code is formatted
+	@echo "Checking code formatting..."
+	@test -z "$$(go fmt ./...)" || (echo "Code is not formatted. Run 'make fmt'" && exit 1)
+
+fmt: ## Format code
+	@echo "Formatting code..."
+	go fmt ./...
+
+mod-tidy: ## Tidy and verify go modules
+	@echo "Tidying go modules..."
+	go mod tidy
+	go mod verify
+
 ##@ Development
 
 generate: ## Generate mocks and other code
