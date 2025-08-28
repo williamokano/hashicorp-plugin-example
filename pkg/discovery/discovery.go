@@ -115,7 +115,13 @@ func GetPluginPaths() []string {
 	}
 
 	// Priority 5: System-wide location
-	paths = append(paths, "/usr/local/lib/plugins")
+	if runtime.GOOS == osWindows {
+		// On Windows, use ProgramData for system-wide plugins
+		paths = append(paths, filepath.Join(os.Getenv("ProgramData"), "plugins"))
+	} else {
+		// On Unix-like systems
+		paths = append(paths, "/usr/local/lib/plugins")
+	}
 
 	return paths
 }

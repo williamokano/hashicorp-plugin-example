@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -175,30 +176,41 @@ func TestGetPluginPaths(t *testing.T) {
 		{
 			name: "includes home directory path",
 			setup: func() {
-				_ = os.Setenv("HOME", "/test/home")
+				if runtime.GOOS == "windows" {
+					_ = os.Setenv("USERPROFILE", "C:\\test\\home")
+				} else {
+					_ = os.Setenv("HOME", "/test/home")
+				}
 				_ = os.Unsetenv("PLUGIN_PATH")
 			},
 			wantPaths: []string{
-				"/test/home/.local/share/plugins",
+				getExpectedHomePath(),
 			},
 		},
 		{
 			name: "includes PLUGIN_PATH environment variable",
 			setup: func() {
-				_ = os.Setenv("PLUGIN_PATH", "/custom/path:/another/path")
+				if runtime.GOOS == "windows" {
+					_ = os.Setenv("PLUGIN_PATH", "C:\\custom\\path;C:\\another\\path")
+				} else {
+					_ = os.Setenv("PLUGIN_PATH", "/custom/path:/another/path")
+				}
 			},
 			wantPaths: []string{
-				"/custom/path",
-				"/another/path",
+				getExpectedCustomPath1(),
+				getExpectedCustomPath2(),
 			},
 		},
 		{
 			name: "includes system path",
 			setup: func() {
 				_ = os.Unsetenv("PLUGIN_PATH")
+				if runtime.GOOS == "windows" {
+					_ = os.Setenv("ProgramData", "C:\\ProgramData")
+				}
 			},
 			wantPaths: []string{
-				"/usr/local/lib/plugins",
+				getExpectedSystemPath(),
 			},
 		},
 	}
@@ -216,9 +228,44 @@ func TestGetPluginPaths(t *testing.T) {
 	}
 }
 
+// Helper functions for cross-platform paths
+func getExpectedHomePath() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join("C:", "test", "home", ".local", "share", "plugins")
+	}
+	return "/test/home/.local/share/plugins"
+}
+
+func getExpectedCustomPath1() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join("C:", "custom", "path")
+	}
+	return "/custom/path"
+}
+
+func getExpectedCustomPath2() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join("C:", "another", "path")
+	}
+	return "/another/path"
+}
+
+func getExpectedSystemPath() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join("C:", "ProgramData", "plugins")
+	}
+	return "/usr/local/lib/plugins"
+}
+
 // Helper functions
 func createExecutableFile(t *testing.T, path string) {
 	t.Helper()
+	
+	// On Windows, ensure the file has .exe extension
+	if runtime.GOOS == "windows" && !strings.HasSuffix(path, ".exe") {
+		path = path + ".exe"
+	}
+	
 	file, err := os.Create(path)
 	require.NoError(t, err)
 	defer func() {
@@ -227,8 +274,12 @@ func createExecutableFile(t *testing.T, path string) {
 		}
 	}()
 
-	err = os.Chmod(path, 0o755)
-	require.NoError(t, err)
+	// On Unix-like systems, set executable permissions
+	if runtime.GOOS != "windows" {
+		err = os.Chmod(path, 0o755)
+		require.NoError(t, err)
+	}
+	// Note: On Windows, files are executable by default based on extension
 }
 
 func createNonExecutableFile(t *testing.T, path string) {
