@@ -179,11 +179,40 @@ generate: ## Generate mocks and other code
 	@echo "Generating mocks..."
 	go generate ./...
 
+check-tools: ## Check installed tool versions
+	@echo "Checking installed tool versions..."
+	@echo "golangci-lint: $$(golangci-lint version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo 'not installed')"
+	@echo "gosec: $$(gosec -version 2>/dev/null | head -1 || echo 'not installed')"
+	@echo "govulncheck: $$(govulncheck -version 2>/dev/null | head -1 || echo 'not installed')"
+	@echo "gocyclo: $$(which gocyclo > /dev/null && echo 'installed' || echo 'not installed')"
+	@echo "ineffassign: $$(which ineffassign > /dev/null && echo 'installed' || echo 'not installed')"
+	@echo "counterfeiter: $$(counterfeiter -version 2>/dev/null || echo 'not installed')"
+	@echo "protoc-gen-go: $$(protoc-gen-go --version 2>/dev/null || echo 'not installed')"
+	@echo "protoc-gen-go-grpc: $$(which protoc-gen-go-grpc > /dev/null && echo 'installed' || echo 'not installed')"
+
 deps: ## Download and install dependencies
 	@echo "Installing dependencies..."
 	go mod download
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	@echo "Installing protoc plugins..."
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.8
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+	@echo "Installing linting tools..."
+	@# Install golangci-lint v2.4.0 (same as CI)
+	@if ! command -v golangci-lint > /dev/null || [ "$$(golangci-lint version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)" != "2.4.0" ]; then \
+		echo "Installing golangci-lint v2.4.0..."; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v2.4.0; \
+	else \
+		echo "golangci-lint v2.4.0 already installed"; \
+	fi
+	@echo "Installing security tools..."
+	go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
+	go install golang.org/x/vuln/cmd/govulncheck@v1.1.3
+	@echo "Installing code analysis tools..."
+	go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
+	go install github.com/gordonklaus/ineffassign@v0.1.0
+	@echo "Installing test tools..."
+	go install github.com/maxbrunsfeld/counterfeiter/v6@v6.11.2
+	@echo "All tools installed successfully!"
 
 run-example: build ## Build and run example with dummy plugin
 	@echo "Running example..."

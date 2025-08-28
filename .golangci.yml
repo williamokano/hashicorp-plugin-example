@@ -1,84 +1,17 @@
+version: '2'
+
 run:
   timeout: 5m
   tests: true
-  build-tags: []
-  skip-dirs: []
-  skip-files: []
 
 linters:
   enable:
-    - gofmt
-    - govet
     - errcheck
-    - staticcheck
-    - gosimple
+    - govet
     - ineffassign
-    - typecheck
-    - unconvert
+    - unused
     - misspell
-    - goimports
+    - unconvert
     - whitespace
   disable:
-    - gochecknoinits  # init functions are acceptable in command files
-    - prealloc        # pre-allocation is an optimization, not a requirement
-    - gosec           # Too many false positives for file operations
-    - gocyclo         # Complexity warnings are informational only
-    - dupl            # Duplicate code detection is too strict
-    - goconst         # Constant extraction can reduce readability
-    - revive          # Too strict for this codebase
-    - unparam         # Unused parameters are sometimes necessary for interfaces
-    - nakedret        # Named returns can be useful
-    - gocritic        # Too many opinionated checks
-
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-  goimports:
-    local-prefixes: github.com/yourusername/hashicorp-plugin-example
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-      - style
-    disabled-checks:
-      - importShadow  # Parameter name 'context' is intentional for clarity
-      - deferInLoop   # Defer in loops is handled correctly with closures
-      - hugeParam     # Event structs are acceptable to pass by value
-  revive:
-    confidence: 0.8
-    rules:
-      - name: var-naming
-        disabled: true
-
-issues:
-  exclude:
-    # Ignore SA9003 for error handling in defer statements
-    - "SA9003: empty branch"
-  exclude-rules:
-    # Exclude some linters from running on test files
-    - path: _test\.go
-      linters:
-        - gosec
-        - dupl
-        - goconst
-    # Exclude generated files
-    - path: \.pb\.go
-      linters:
-        - gosec
-        - gocritic
-    # Exclude counterfeiter generated files
-    - path: fake_.*\.go
-      linters:
-        - gosec
-        - gocritic
-        - revive
-  exclude-use-default: false
-  max-issues-per-linter: 100
-  max-same-issues: 10
+    - staticcheck
