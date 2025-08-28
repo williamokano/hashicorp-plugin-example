@@ -260,12 +260,12 @@ func getExpectedSystemPath() string {
 // Helper functions
 func createExecutableFile(t *testing.T, path string) string {
 	t.Helper()
-	
+
 	// On Windows, ensure the file has .exe extension
 	if runtime.GOOS == "windows" && !strings.HasSuffix(path, ".exe") {
 		path = path + ".exe"
 	}
-	
+
 	file, err := os.Create(path)
 	require.NoError(t, err)
 	defer func() {
@@ -280,7 +280,7 @@ func createExecutableFile(t *testing.T, path string) string {
 		require.NoError(t, err)
 	}
 	// Note: On Windows, files are executable by default based on extension
-	
+
 	return path
 }
 
