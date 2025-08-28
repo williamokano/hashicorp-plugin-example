@@ -85,7 +85,7 @@ Shows plugin name, priority, version, and description.`,
 
 				client.Kill()
 			}
-			w.Flush()
+			_ = w.Flush() // Best effort
 
 			if showPaths {
 				fmt.Printf("\nPlugin paths:\n")

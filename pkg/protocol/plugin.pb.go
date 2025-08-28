@@ -4,6 +4,7 @@
 // 	protoc        v6.32.0
 // source: pkg/protocol/plugin.proto
 
+//nolint:gosec // G103: generated protobuf code uses unsafe for performance
 package protocol
 
 import (
@@ -462,7 +463,7 @@ var (
 
 func file_pkg_protocol_plugin_proto_rawDescGZIP() []byte {
 	file_pkg_protocol_plugin_proto_rawDescOnce.Do(func() {
-		file_pkg_protocol_plugin_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pkg_protocol_plugin_proto_rawDesc), len(file_pkg_protocol_plugin_proto_rawDesc)))
+		file_pkg_protocol_plugin_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pkg_protocol_plugin_proto_rawDesc), len(file_pkg_protocol_plugin_proto_rawDesc))) //nolint:gosec // G103: generated protobuf code
 	})
 	return file_pkg_protocol_plugin_proto_rawDescData
 }
@@ -501,7 +502,7 @@ func file_pkg_protocol_plugin_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_protocol_plugin_proto_rawDesc), len(file_pkg_protocol_plugin_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pkg_protocol_plugin_proto_rawDesc), len(file_pkg_protocol_plugin_proto_rawDesc)), //nolint:gosec // G103: generated protobuf code
 			NumEnums:      0,
 			NumMessages:   6,
 			NumExtensions: 0,

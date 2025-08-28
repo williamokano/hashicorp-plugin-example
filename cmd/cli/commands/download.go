@@ -70,7 +70,7 @@ func runDownload(cmd *cobra.Command, args []string) error {
 	archName := runtime.GOARCH
 
 	// Ensure download path exists
-	if err := os.MkdirAll(downloadPath, 0755); err != nil {
+	if err := os.MkdirAll(downloadPath, 0750); err != nil {
 		return fmt.Errorf("failed to create download directory: %w", err)
 	}
 
@@ -142,7 +142,7 @@ func runDownload(cmd *cobra.Command, args []string) error {
 	}
 
 	// Make the plugin executable
-	if err := os.Chmod(pluginPath, 0755); err != nil {
+	if err := os.Chmod(pluginPath, 0755); err != nil { //nolint:gosec // G302: executable files need 0755
 		return fmt.Errorf("failed to make plugin executable: %w", err)
 	}
 
@@ -248,7 +248,15 @@ func extractTarGz(archivePath, destPath string) error {
 			return err
 		}
 
+		// Validate file path to prevent zip slip attacks
+		if strings.Contains(header.Name, "..") || filepath.IsAbs(header.Name) {
+			continue // Skip potentially malicious entries
+		}
 		target := filepath.Join(destPath, header.Name)
+		// Ensure target is within destination path
+		if !strings.HasPrefix(target, filepath.Clean(destPath)+string(os.PathSeparator)) {
+			continue // Skip files outside destination
+		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
@@ -260,11 +268,13 @@ func extractTarGz(archivePath, destPath string) error {
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				outFile.Close()
+			// Limit file size to prevent decompression bombs (100MB limit)
+			const maxFileSize = 100 * 1024 * 1024
+			if _, err := io.CopyN(outFile, tarReader, maxFileSize); err != nil && err != io.EOF {
+				_ = outFile.Close() // Best effort cleanup
 				return err
 			}
-			outFile.Close()
+			_ = outFile.Close() // Best effort cleanup
 
 			if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
 				return err

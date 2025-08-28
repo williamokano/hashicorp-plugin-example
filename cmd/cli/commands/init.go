@@ -40,8 +40,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	// Remove existing files if force flag is set
 	if forceInit {
-		os.Remove(config.PluginsConfigFile)
-		os.Remove(config.PluginsLockFile)
+		_ = os.Remove(config.PluginsConfigFile) // Best effort cleanup
+		_ = os.Remove(config.PluginsLockFile) // Best effort cleanup
 	}
 
 	// Initialize the configuration

@@ -131,7 +131,7 @@ func downloadPlugin(pluginName, version, repo string) error {
 	pluginsDir := config.GetPluginsDirectory()
 
 	// Ensure plugins directory exists
-	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
+	if err := os.MkdirAll(pluginsDir, 0750); err != nil {
 		return fmt.Errorf("failed to create plugins directory: %w", err)
 	}
 
@@ -185,7 +185,7 @@ func downloadAndExtract(url, destDir, pluginPath string) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(pluginPath, input, 0755); err != nil {
+		if err := os.WriteFile(pluginPath, input, 0755); err != nil { //nolint:gosec // G306: executable files need 0755
 			return err
 		}
 		return nil

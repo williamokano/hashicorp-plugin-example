@@ -336,6 +336,33 @@ When working on this project:
 9. Update this file when adding major features
 10. Prefer composition over inheritance
 
+### IMPORTANT: Post-Development Quality Checks
+
+**ALWAYS run these commands after making changes to Go files:**
+
+```bash
+# Run all quality checks (lint, vet, security scan)
+make quality
+
+# Run all tests
+make test
+
+# If any issues are found, fix them before considering the task complete
+```
+
+**Quality gate requirements:**
+- All tests must pass (`make test`)
+- No lint errors (`make lint`)  
+- No vet issues (`make vet`)
+- Security scan completes (may show findings but shouldn't fail - `make security`)
+- Code formatting is correct (`make fmt-check` or run `make fmt`)
+
+**Never mark a task as complete if:**
+- Tests are failing
+- Lint/vet show errors  
+- Quality pipeline would fail in CI
+- You haven't run the quality checks after Go code changes
+
 ## Release Checklist
 
 - [ ] All tests passing

@@ -48,7 +48,7 @@ func SavePluginsConfig(config *PluginsConfig) error {
 		return fmt.Errorf("failed to marshal plugins config: %w", err)
 	}
 
-	if err := os.WriteFile(PluginsConfigFile, data, 0644); err != nil {
+	if err := os.WriteFile(PluginsConfigFile, data, 0600); err != nil {
 		return fmt.Errorf("failed to write plugins config: %w", err)
 	}
 
@@ -74,7 +74,7 @@ func InitPluginsConfig() error {
 
 	// Create .plugins directory if it doesn't exist
 	pluginsDir := ".plugins"
-	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
+	if err := os.MkdirAll(pluginsDir, 0750); err != nil {
 		return fmt.Errorf("failed to create .plugins directory: %w", err)
 	}
 
@@ -142,7 +142,7 @@ func SavePluginsLock(lock *PluginsLock) error {
 		return fmt.Errorf("failed to marshal plugins lock: %w", err)
 	}
 
-	if err := os.WriteFile(PluginsLockFile, data, 0644); err != nil {
+	if err := os.WriteFile(PluginsLockFile, data, 0600); err != nil {
 		return fmt.Errorf("failed to write plugins lock: %w", err)
 	}
 

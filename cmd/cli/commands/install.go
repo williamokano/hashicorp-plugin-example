@@ -91,7 +91,7 @@ func runInstallAll(cmd *cobra.Command, args []string) error {
 
 	// Ensure .plugins directory exists
 	pluginsDir := config.GetPluginsDirectory()
-	if err := os.MkdirAll(pluginsDir, 0755); err != nil {
+	if err := os.MkdirAll(pluginsDir, 0750); err != nil {
 		return fmt.Errorf("failed to create plugins directory: %w", err)
 	}
 
@@ -237,7 +237,7 @@ func installPluginWithItem(item download.DownloadItem, repo string) error {
 		if err != nil {
 			return fmt.Errorf("failed to read local binary: %w", err)
 		}
-		if err := os.WriteFile(item.DestPath, input, 0755); err != nil {
+		if err := os.WriteFile(item.DestPath, input, 0755); err != nil { //nolint:gosec // G306: executable files need 0755
 			return fmt.Errorf("failed to copy binary: %w", err)
 		}
 		return nil

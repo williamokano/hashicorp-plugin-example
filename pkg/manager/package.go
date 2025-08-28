@@ -46,7 +46,7 @@ func NewPackageManager() (*PackageManager, error) {
 	}
 
 	installDir := filepath.Join(homeDir, ".local", "share", "plugins")
-	if err := os.MkdirAll(installDir, 0755); err != nil {
+	if err := os.MkdirAll(installDir, 0750); err != nil {
 		return nil, err
 	}
 
@@ -84,7 +84,7 @@ func (pm *PackageManager) Install(repository, version string) error {
 		return fmt.Errorf("failed to extract plugin: %w", err)
 	}
 
-	os.Remove(downloadPath)
+	_ = os.Remove(downloadPath) // Best effort cleanup
 
 	return nil
 }
@@ -173,7 +173,7 @@ func (pm *PackageManager) extractPlugin(archivePath, pluginName string) error {
 		if err := os.Rename(archivePath, binaryPath); err != nil {
 			return err
 		}
-		return os.Chmod(binaryPath, 0755)
+		return os.Chmod(binaryPath, 0755) //nolint:gosec // G302: executable files need 0755
 	}
 }
 
@@ -217,11 +217,13 @@ func (pm *PackageManager) extractTarGz(archivePath, pluginName string) error {
 			}
 			defer outFile.Close()
 
-			if _, err := io.Copy(outFile, tr); err != nil {
+			// Limit file size to prevent decompression bombs (100MB limit)
+			const maxFileSize = 100 * 1024 * 1024
+			if _, err := io.CopyN(outFile, tr, maxFileSize); err != nil && err != io.EOF {
 				return err
 			}
 
-			return os.Chmod(targetPath, 0755)
+			return os.Chmod(targetPath, 0755) //nolint:gosec // G302: executable files need 0755
 		}
 	}
 
@@ -254,11 +256,13 @@ func (pm *PackageManager) extractZip(archivePath, pluginName string) error {
 			}
 			defer outFile.Close()
 
-			if _, err := io.Copy(outFile, rc); err != nil {
+			// Limit file size to prevent decompression bombs (100MB limit)
+			const maxFileSize = 100 * 1024 * 1024
+			if _, err := io.CopyN(outFile, rc, maxFileSize); err != nil && err != io.EOF {
 				return err
 			}
 
-			return os.Chmod(targetPath, 0755)
+			return os.Chmod(targetPath, 0755) //nolint:gosec // G302: executable files need 0755
 		}
 	}
 
