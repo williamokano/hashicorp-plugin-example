@@ -65,8 +65,15 @@ func DiscoverPlugins(paths []string) ([]DiscoveredPlugin, error) {
 				continue
 			}
 
-			if info.Mode()&0o111 == 0 {
-				continue
+			// Check if file is executable
+			if runtime.GOOS == osWindows {
+				// On Windows, we rely on the .exe extension check above
+				// All .exe files are considered executable
+			} else {
+				// On Unix-like systems, check executable permissions
+				if info.Mode()&0o111 == 0 {
+					continue
+				}
 			}
 
 			pluginName := strings.TrimPrefix(name, PluginPrefix)

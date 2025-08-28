@@ -231,34 +231,34 @@ func TestGetPluginPaths(t *testing.T) {
 // Helper functions for cross-platform paths
 func getExpectedHomePath() string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join("C:", "test", "home", ".local", "share", "plugins")
+		return "C:\\test\\home\\.local\\share\\plugins"
 	}
 	return "/test/home/.local/share/plugins"
 }
 
 func getExpectedCustomPath1() string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join("C:", "custom", "path")
+		return "C:\\custom\\path"
 	}
 	return "/custom/path"
 }
 
 func getExpectedCustomPath2() string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join("C:", "another", "path")
+		return "C:\\another\\path"
 	}
 	return "/another/path"
 }
 
 func getExpectedSystemPath() string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join("C:", "ProgramData", "plugins")
+		return "C:\\ProgramData\\plugins"
 	}
 	return "/usr/local/lib/plugins"
 }
 
 // Helper functions
-func createExecutableFile(t *testing.T, path string) {
+func createExecutableFile(t *testing.T, path string) string {
 	t.Helper()
 	
 	// On Windows, ensure the file has .exe extension
@@ -280,6 +280,8 @@ func createExecutableFile(t *testing.T, path string) {
 		require.NoError(t, err)
 	}
 	// Note: On Windows, files are executable by default based on extension
+	
+	return path
 }
 
 func createNonExecutableFile(t *testing.T, path string) {
