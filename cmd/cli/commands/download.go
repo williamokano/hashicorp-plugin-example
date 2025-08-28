@@ -122,7 +122,12 @@ func runDownload(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to download plugin: %w", err)
 		}
 	}
-	defer os.Remove(archivePath) // Clean up archive after extraction
+	defer func() {
+		if err := os.Remove(archivePath); err != nil {
+			// Log the error but don't fail the command
+			fmt.Printf("Warning: Could not remove temporary file %s: %v\n", archivePath, err)
+		}
+	}()
 
 	// Verify checksum if requested
 	if verifyChecksum {

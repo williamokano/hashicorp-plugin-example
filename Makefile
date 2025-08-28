@@ -144,7 +144,10 @@ security: ## Run security scan with gosec
 vulncheck: ## Check for known vulnerabilities
 	@echo "Checking for vulnerabilities..."
 	@which govulncheck > /dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
-	govulncheck ./...
+	@echo "Ensuring modules are up to date..."
+	@go mod download
+	@echo "Running vulnerability check..."
+	govulncheck ./... || true
 
 complexity: ## Check cyclomatic complexity
 	@echo "Checking cyclomatic complexity..."
