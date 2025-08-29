@@ -109,6 +109,8 @@ jobs:
               PKG="plugin-cli_${VERSION}_${{ matrix.os }}_${{ matrix.goarch }}.tar.gz"
               tar -czf "dist/${PKG}" "${BIN}"
             fi
+            echo "Created package: dist/${PKG}"
+            ls -la "dist/${PKG}"
             sha256sum "dist/${PKG}" > "dist/${PKG}.sha256"
 
             for PLUGIN_DIR in plugins/*/; do
@@ -124,6 +126,8 @@ jobs:
                 PKG="plugin-${PLG}_${VERSION}_${{ matrix.os }}_${{ matrix.goarch }}.tar.gz"
                 tar -czf "dist/${PKG}" "${BIN}"
               fi
+              echo "Created plugin package: dist/${PKG}"
+              ls -la "dist/${PKG}"
               sha256sum "dist/${PKG}" > "dist/${PKG}.sha256"
             done
 
@@ -141,8 +145,18 @@ jobs:
               PKG="${PN}_${VERSION}_${{ matrix.os }}_${{ matrix.goarch }}.tar.gz"
               tar -czf "dist/${PKG}" "${BIN}"
             fi
+            echo "Created single plugin package: dist/${PKG}"
+            ls -la "dist/${PKG}"
             sha256sum "dist/${PKG}" > "dist/${PKG}.sha256"
           fi
+
+      - name: Debug - List all built files
+        shell: bash
+        run: |
+          echo "=== Debug: Contents of dist directory ==="
+          ls -la dist/
+          echo "=== Debug: File types ==="
+          file dist/*
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -170,10 +184,22 @@ jobs:
         id: collect
         shell: bash
         run: |
+          echo "=== Debug: All artifacts ==="
+          find artifacts -type f | sort
+          echo "=== Debug: tar.gz files ==="
+          find artifacts -type f -name '*.tar.gz' | sort
+          echo "=== Debug: zip files ==="
+          find artifacts -type f -name '*.zip' | sort
+          echo "=== Debug: sha256 files ==="
+          find artifacts -type f -name '*.sha256' | sort
+          
           mkdir -p release
-          find artifacts -type f -name '*.tar.gz' -o -name '*.zip' -exec cp {} release/ \;
+          find artifacts -type f -name '*.tar.gz' -exec cp {} release/ \;
+          find artifacts -type f -name '*.zip' -exec cp {} release/ \;
           find artifacts -type f -name '*.sha256' -exec cp {} release/ \;
           (cd release && cat *.sha256 > checksums.txt)
+          
+          echo "=== Debug: Files in release directory ==="
           ls -la release
 
       - name: Generate release notes

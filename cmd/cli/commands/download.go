@@ -2,6 +2,7 @@ package commands
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
@@ -99,29 +100,22 @@ func runDownload(cmd *cobra.Command, args []string, downloadVersion, downloadRep
 		}
 	}
 
-	// Construct download URL
-	archiveName := fmt.Sprintf("%s_%s_%s_%s.tar.gz", pluginName, version, osName, archName)
+	// Construct download URL with appropriate extension
+	var archiveName string
+	if osName == "windows" {
+		archiveName = fmt.Sprintf("%s_%s_%s_%s.zip", pluginName, version, osName, archName)
+	} else {
+		archiveName = fmt.Sprintf("%s_%s_%s_%s.tar.gz", pluginName, version, osName, archName)
+	}
 	downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s",
 		downloadRepo, version, archiveName)
-
-	// For plugin-specific releases, use different tag format
-	if pluginName != "plugin-cli" {
-		shortName := strings.TrimPrefix(pluginName, "plugin-")
-		downloadURL = fmt.Sprintf("https://github.com/%s/releases/download/plugin-%s-v%s/%s",
-			downloadRepo, shortName, version, archiveName)
-	}
 
 	fmt.Printf("Downloading %s from %s...\n", pluginName, downloadURL)
 
 	// Download the archive
 	archivePath := filepath.Join(downloadPath, archiveName)
 	if err := downloadFile(archivePath, downloadURL); err != nil {
-		// Try alternative URL format (general release)
-		downloadURL = fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s",
-			downloadRepo, version, archiveName)
-		if err := downloadFile(archivePath, downloadURL); err != nil {
-			return fmt.Errorf("failed to download plugin: %w", err)
-		}
+		return fmt.Errorf("failed to download plugin: %w", err)
 	}
 	defer func() {
 		if err := os.Remove(archivePath); err != nil {
@@ -143,8 +137,14 @@ func runDownload(cmd *cobra.Command, args []string, downloadVersion, downloadRep
 
 	// Extract the plugin
 	fmt.Printf("Extracting %s...\n", archiveName)
-	if err := extractTarGz(archivePath, downloadPath); err != nil {
-		return fmt.Errorf("failed to extract plugin: %w", err)
+	if strings.HasSuffix(archiveName, ".zip") {
+		if err := extractZip(archivePath, downloadPath); err != nil {
+			return fmt.Errorf("failed to extract plugin: %w", err)
+		}
+	} else {
+		if err := extractTarGz(archivePath, downloadPath); err != nil {
+			return fmt.Errorf("failed to extract plugin: %w", err)
+		}
 	}
 
 	// Make the plugin executable
@@ -309,6 +309,66 @@ func extractTarGz(archivePath, destPath string) error {
 			if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func extractZip(archivePath, destPath string) error {
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := reader.Close(); err != nil {
+			// Log but don't return error as archive was read successfully
+		}
+	}()
+
+	for _, file := range reader.File {
+		// Validate file path to prevent zip slip attacks
+		if strings.Contains(file.Name, "..") || filepath.IsAbs(file.Name) {
+			continue // Skip potentially malicious entries
+		}
+		target := filepath.Join(destPath, file.Name)
+		// Ensure target is within destination path
+		if !strings.HasPrefix(target, filepath.Clean(destPath)+string(os.PathSeparator)) {
+			continue // Skip files outside destination
+		}
+
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(target, file.FileInfo().Mode()); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// Extract regular file
+		reader, err := file.Open()
+		if err != nil {
+			return err
+		}
+
+		outFile, err := os.Create(target)
+		if err != nil {
+			_ = reader.Close() // Best effort cleanup
+			return err
+		}
+
+		// Limit file size to prevent decompression bombs (100MB limit)
+		const maxFileSize = 100 * 1024 * 1024
+		if _, err := io.CopyN(outFile, reader, maxFileSize); err != nil && err != io.EOF {
+			_ = reader.Close() // Best effort cleanup
+			_ = outFile.Close() // Best effort cleanup
+			return err
+		}
+
+		_ = reader.Close() // Best effort cleanup
+		_ = outFile.Close() // Best effort cleanup
+
+		if err := os.Chmod(target, file.FileInfo().Mode()); err != nil {
+			return err
 		}
 	}
 
