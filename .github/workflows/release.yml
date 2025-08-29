@@ -25,30 +25,24 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        run: go mod download
+        run: make deps
 
       - name: Install protoc
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
 
-      - name: Install protoc-gen-go
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
       - name: Generate protobuf files
-        run: |
-          protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative pkg/protocol/plugin.proto
+        run: make proto
 
       - name: Run tests
-        run: go test ./...
+        run: make test
 
       - name: Run tests with race detector
-        run: go test -race ./...
+        run: make test-race
 
       - name: Generate coverage report
-        run: go test -coverprofile=coverage.out ./...
+        run: make test-coverage-report
 
   lint:
     name: Lint
@@ -64,21 +58,15 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        run: go mod download
+        run: make deps
 
       - name: Install protoc
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
 
-      - name: Install protoc-gen-go
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
       - name: Generate protobuf files
-        run: |
-          protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative pkg/protocol/plugin.proto
+        run: make proto
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8
@@ -97,16 +85,24 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.6'
+          cache: true
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Generate protobuf files
+        run: make proto
 
       - name: Run go vet
-        run: go vet ./...
+        run: make vet
 
       - name: Check formatting
-        run: |
-          if [ -n "$(go fmt ./...)" ]; then
-            echo "Code is not formatted. Run 'go fmt ./...'"
-            exit 1
-          fi
+        run: make fmt-check
 
       - name: Check go mod tidy
         run: |
@@ -115,6 +111,9 @@ jobs:
             echo "go mod tidy would make changes - run 'go mod tidy' and commit the changes"
             exit 1
           fi
+
+      - name: Run full quality pipeline
+        run: make quality
 
   security:
     name: Security Scan
@@ -127,10 +126,24 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.6'
+          cache: true
 
-      - name: Run gosec
+      - name: Install dependencies
+        run: make deps
+
+      - name: Install protoc
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Generate protobuf files
+        run: make proto
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.22.8
+
+      - name: Run gosec with SARIF output
+        run: |
           gosec -fmt sarif -out gosec-results.sarif -confidence medium ./... || true
 
       - name: Upload SARIF file
@@ -140,10 +153,11 @@ jobs:
           sarif_file: gosec-results.sarif
         continue-on-error: true
 
-      - name: Run govulncheck
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+      
+      - name: Run vulnerability check
+        run: make vulncheck
 
   complexity:
     name: Complexity Analysis
@@ -156,16 +170,28 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.6'
+          cache: true
+
+      - name: Install dependencies
+        run: make deps
+
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Generate protobuf files
+        run: make proto
 
       - name: Check cyclomatic complexity
         run: |
-          go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+          go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
           # Report but don't fail on high complexity
           gocyclo -over 15 . || true
 
       - name: Check ineffective assignments
         run: |
-          go install github.com/gordonklaus/ineffassign@latest
+          go install github.com/gordonklaus/ineffassign@v0.1.0
           ineffassign ./...
 
   build:
