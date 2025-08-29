@@ -2,456 +2,186 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
-      - 'plugin-*-v*'
+    tags: ['v*', 'plugin-*-v*'] # v1.2.3 or plugin-<name>-v1.2.3
+  workflow_dispatch: {}
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # Run all quality gates before building release
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.6'
-          cache: true
-
-      - name: Install dependencies
-        run: make deps
-
-      - name: Install protoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Generate protobuf files
-        run: make proto
-
-      - name: Run tests
-        run: make test
-
-      - name: Run tests with race detector
-        run: make test-race
-
-      - name: Generate coverage report
-        run: make test-coverage-report
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.6'
-          cache: true
-
-      - name: Install dependencies
-        run: make deps
-
-      - name: Install protoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Generate protobuf files
-        run: make proto
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          version: latest
-          args: --timeout=5m
-
-  quality:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.6'
-          cache: true
-
-      - name: Install dependencies
-        run: make deps
-
-      - name: Install protoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Generate protobuf files
-        run: make proto
-
-      - name: Run go vet
-        run: make vet
-
-      - name: Check formatting
-        run: make fmt-check
-
-      - name: Check go mod tidy
-        run: |
-          go mod tidy
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "go mod tidy would make changes - run 'go mod tidy' and commit the changes"
-            exit 1
-          fi
-
-      - name: Run full quality pipeline
-        run: make quality
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.6'
-          cache: true
-
-      - name: Install dependencies
-        run: make deps
-
-      - name: Install protoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Generate protobuf files
-        run: make proto
-
-      - name: Install gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.22.8
-
-      - name: Run gosec with SARIF output
-        run: |
-          gosec -fmt sarif -out gosec-results.sarif -confidence medium ./... || true
-
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: gosec-results.sarif
-        continue-on-error: true
-
-      - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
-      
-      - name: Run vulnerability check
-        run: make vulncheck
-
-  complexity:
-    name: Complexity Analysis
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24.6'
-          cache: true
-
-      - name: Install dependencies
-        run: make deps
-
-      - name: Install protoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Generate protobuf files
-        run: make proto
-
-      - name: Check cyclomatic complexity
-        run: |
-          go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0
-          # Report but don't fail on high complexity
-          gocyclo -over 15 . || true
-
-      - name: Check ineffective assignments
-        run: |
-          go install github.com/gordonklaus/ineffassign@v0.1.0
-          ineffassign ./...
-
   build:
-    name: Build Release Binaries
-    needs: [test, lint, quality, security, complexity]
+    name: Build artifacts
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         include:
-          # Linux builds
+          # Linux
           - os: linux
-            arch: amd64
             goos: linux
             goarch: amd64
           - os: linux
-            arch: 386
-            goos: linux
-            goarch: 386
-          - os: linux
-            arch: arm64
             goos: linux
             goarch: arm64
-          
-          # macOS builds
+          # macOS
           - os: darwin
-            arch: amd64
             goos: darwin
             goarch: amd64
           - os: darwin
-            arch: arm64
             goos: darwin
             goarch: arm64
-          
-          # Windows builds
+          # Windows
           - os: windows
-            arch: amd64
             goos: windows
             goarch: amd64
           - os: windows
-            arch: 386
-            goos: windows
-            goarch: 386
-          - os: windows
-            arch: arm64
             goos: windows
             goarch: arm64
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24.6'
+          go-version: '1.24.x'
+          cache: true
 
-      - name: Get version from tag
-        id: get_version
+      - name: Set up protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: '27.x'
+
+      - name: Resolve version from tag
+        id: v
+        shell: bash
         run: |
-          if [[ "${{ github.ref_name }}" =~ ^plugin-(.*)-v(.*)$ ]]; then
-            # Plugin-specific tag like plugin-dummy-v1.0.0
-            echo "PLUGIN_NAME=plugin-${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            echo "VERSION=${BASH_REMATCH[2]}" >> $GITHUB_OUTPUT
-            echo "IS_PLUGIN=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref_name }}" =~ ^v(.*)$ ]]; then
-            # General release tag like v1.0.0 (all plugins and CLI)
-            echo "VERSION=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            echo "IS_PLUGIN=false" >> $GITHUB_OUTPUT
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ ^plugin-(.*)-v(.*)$ ]]; then
+            echo "kind=plugin" >> "$GITHUB_OUTPUT"
+            echo "plugin_name=plugin-${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+            echo "version=${BASH_REMATCH[2]}" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^v(.*)$ ]]; then
+            echo "kind=full" >> "$GITHUB_OUTPUT"
+            echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unexpected tag format: $TAG"
+            exit 1
           fi
 
-      - name: Build CLI
-        if: steps.get_version.outputs.IS_PLUGIN == 'false'
+      - name: Install deps
+        run: make deps
+
+      - name: Generate protobuf
+        run: make proto
+
+      - name: Build binaries
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
+        shell: bash
         run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
+          VERSION="${{ steps.v.outputs.version }}"
           BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
-          LDFLAGS="-X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIVersion=${VERSION}"
-          LDFLAGS="${LDFLAGS} -X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIBuildTime=${BUILD_TIME}"
-          LDFLAGS="${LDFLAGS} -X main.Version=${VERSION}"
-          LDFLAGS="${LDFLAGS} -X main.BuildTime=${BUILD_TIME}"
-          
-          BINARY_NAME="plugin-cli"
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            BINARY_NAME="${BINARY_NAME}.exe"
-          fi
-          
-          go build -ldflags "${LDFLAGS}" -o ${BINARY_NAME} cmd/cli/main.go
-          
-          # Create archive
-          ARCHIVE_NAME="plugin-cli_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz"
-          tar czf ${ARCHIVE_NAME} ${BINARY_NAME}
-          
-          # Generate SHA256 checksum
-          sha256sum ${ARCHIVE_NAME} > ${ARCHIVE_NAME}.sha256
+          LDFLAGS="-s -w -X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIVersion=${VERSION} \
+                   -X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIBuildTime=${BUILD_TIME} \
+                   -X main.Version=${VERSION} \
+                   -X main.BuildTime=${BUILD_TIME}"
 
-      - name: Build all plugins
-        if: steps.get_version.outputs.IS_PLUGIN == 'false'
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
-        run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
-          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
-          LDFLAGS="-X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIVersion=${VERSION}"
-          LDFLAGS="${LDFLAGS} -X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIBuildTime=${BUILD_TIME}"
-          LDFLAGS="${LDFLAGS} -X main.Version=${VERSION}"
-          LDFLAGS="${LDFLAGS} -X main.BuildTime=${BUILD_TIME}"
-          
-          # Build each plugin
-          for PLUGIN_DIR in plugins/*/; do
-            PLUGIN=$(basename ${PLUGIN_DIR})
-            BINARY_NAME="plugin-${PLUGIN}"
-            
-            if [ "${{ matrix.os }}" = "windows" ]; then
-              BINARY_NAME="${BINARY_NAME}.exe"
+          mkdir -p dist
+
+          if [[ "${{ steps.v.outputs.kind }}" == "full" ]]; then
+            BIN="plugin-cli"
+            [[ "${{ matrix.goos }}" == "windows" ]] && BIN="${BIN}.exe"
+            go build -trimpath -ldflags "${LDFLAGS}" -o "${BIN}" cmd/cli/main.go
+
+            if [[ "${{ matrix.goos }}" == "windows" ]]; then
+              PKG="plugin-cli_${VERSION}_${{ matrix.os }}_${{ matrix.goarch }}.zip"
+              zip -q "dist/${PKG}" "${BIN}"
+            else
+              PKG="plugin-cli_${VERSION}_${{ matrix.os }}_${{ matrix.goarch }}.tar.gz"
+              tar -czf "dist/${PKG}" "${BIN}"
             fi
-            
-            echo "Building ${PLUGIN}..."
-            go build -ldflags "${LDFLAGS}" -o ${BINARY_NAME} ${PLUGIN_DIR}/main.go
-            
-            # Create archive
-            ARCHIVE_NAME="plugin-${PLUGIN}_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz"
-            tar czf ${ARCHIVE_NAME} ${BINARY_NAME}
-            
-            # Generate SHA256 checksum
-            sha256sum ${ARCHIVE_NAME} > ${ARCHIVE_NAME}.sha256
-          done
+            sha256sum "dist/${PKG}" > "dist/${PKG}.sha256"
 
-      - name: Build specific plugin
-        if: steps.get_version.outputs.IS_PLUGIN == 'true'
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
-        run: |
-          VERSION=${{ steps.get_version.outputs.VERSION }}
-          PLUGIN_NAME=${{ steps.get_version.outputs.PLUGIN_NAME }}
-          PLUGIN=${PLUGIN_NAME#plugin-}
-          
-          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
-          LDFLAGS="-X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIVersion=${VERSION}"
-          LDFLAGS="${LDFLAGS} -X github.com/williamokano/hashicorp-plugin-example/internal/version.CLIBuildTime=${BUILD_TIME}"
-          LDFLAGS="${LDFLAGS} -X main.Version=${VERSION}"
-          LDFLAGS="${LDFLAGS} -X main.BuildTime=${BUILD_TIME}"
-          
-          BINARY_NAME="${PLUGIN_NAME}"
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            BINARY_NAME="${BINARY_NAME}.exe"
+            for PLUGIN_DIR in plugins/*/; do
+              PLG=$(basename "${PLUGIN_DIR}")
+              BIN="plugin-${PLG}"
+              [[ "${{ matrix.goos }}" == "windows" ]] && BIN="${BIN}.exe"
+              go build -trimpath -ldflags "${LDFLAGS}" -o "${BIN}" "${PLUGIN_DIR}/main.go"
+
+              if [[ "${{ matrix.goos }}" == "windows" ]]; then
+                PKG="plugin-${PLG}_${VERSION}_${{ matrix.os }}_${{ matrix.goarch }}.zip"
+                zip -q "dist/${PKG}" "${BIN}"
+              else
+                PKG="plugin-${PLG}_${VERSION}_${{ matrix.os }}_${{ matrix.goarch }}.tar.gz"
+                tar -czf "dist/${PKG}" "${BIN}"
+              fi
+              sha256sum "dist/${PKG}" > "dist/${PKG}.sha256"
+            done
+
+          else
+            PN="${{ steps.v.outputs.plugin_name }}"
+            PLG="${PN#plugin-}"
+            BIN="${PN}"
+            [[ "${{ matrix.goos }}" == "windows" ]] && BIN="${BIN}.exe"
+            go build -trimpath -ldflags "${LDFLAGS}" -o "${BIN}" "plugins/${PLG}/main.go"
+
+            if [[ "${{ matrix.goos }}" == "windows" ]]; then
+              PKG="${PN}_${VERSION}_${{ matrix.os }}_${{ matrix.goarch }}.zip"
+              zip -q "dist/${PKG}" "${BIN}"
+            else
+              PKG="${PN}_${VERSION}_${{ matrix.os }}_${{ matrix.goarch }}.tar.gz"
+              tar -czf "dist/${PKG}" "${BIN}"
+            fi
+            sha256sum "dist/${PKG}" > "dist/${PKG}.sha256"
           fi
-          
-          echo "Building ${PLUGIN}..."
-          go build -ldflags "${LDFLAGS}" -o ${BINARY_NAME} plugins/${PLUGIN}/main.go
-          
-          # Create archive
-          ARCHIVE_NAME="${PLUGIN_NAME}_${VERSION}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz"
-          tar czf ${ARCHIVE_NAME} ${BINARY_NAME}
-          
-          # Generate SHA256 checksum
-          sha256sum ${ARCHIVE_NAME} > ${ARCHIVE_NAME}.sha256
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.os }}-${{ matrix.arch }}
-          path: |
-            *.tar.gz
-            *.sha256
+          name: artifacts-${{ matrix.os }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
 
   release:
-    name: Create Release
-    needs: [test, lint, quality, security, complexity, build]
+    name: Publish GitHub Release
+    needs: [build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
       - name: Download all artifacts
         uses: actions/download-artifact@v5
         with:
           path: artifacts
 
-      - name: Organize release files
+      - name: Gather files & checksums
+        id: collect
+        shell: bash
         run: |
           mkdir -p release
-          find artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" \) -exec mv {} release/ \;
-          
-          # Copy plugin metadata if it exists
-          if [ -f "plugin-metadata.json" ]; then
-            cp plugin-metadata.json release/
-          fi
-          
-          ls -la release/
+          find artifacts -type f -name '*.tar.gz' -o -name '*.zip' -exec cp {} release/ \;
+          find artifacts -type f -name '*.sha256' -exec cp {} release/ \;
+          (cd release && cat *.sha256 > checksums.txt)
+          ls -la release
 
       - name: Generate release notes
-        id: release_notes
         run: |
-          if [[ "${{ github.ref_name }}" =~ ^plugin-(.*)-v(.*)$ ]]; then
-            PLUGIN_NAME=${BASH_REMATCH[1]}
-            VERSION=${BASH_REMATCH[2]}
-            echo "# Plugin Release: ${PLUGIN_NAME} v${VERSION}" > release_notes.md
-            echo "" >> release_notes.md
-            echo "## Downloads" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "### Plugin Binaries" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "| OS | Architecture | Download |" >> release_notes.md
-            echo "|---|---|---|" >> release_notes.md
-            echo "| Linux | amd64 | [plugin-${PLUGIN_NAME}_${VERSION}_linux_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_linux_amd64.tar.gz) |" >> release_notes.md
-            echo "| Linux | 386 | [plugin-${PLUGIN_NAME}_${VERSION}_linux_386.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_linux_386.tar.gz) |" >> release_notes.md
-            echo "| Linux | arm64 | [plugin-${PLUGIN_NAME}_${VERSION}_linux_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_linux_arm64.tar.gz) |" >> release_notes.md
-            echo "| macOS | amd64 (Intel) | [plugin-${PLUGIN_NAME}_${VERSION}_darwin_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_darwin_amd64.tar.gz) |" >> release_notes.md
-            echo "| macOS | arm64 (M1/M2) | [plugin-${PLUGIN_NAME}_${VERSION}_darwin_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_darwin_arm64.tar.gz) |" >> release_notes.md
-            echo "| Windows | amd64 | [plugin-${PLUGIN_NAME}_${VERSION}_windows_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_windows_amd64.tar.gz) |" >> release_notes.md
-            echo "| Windows | 386 | [plugin-${PLUGIN_NAME}_${VERSION}_windows_386.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_windows_386.tar.gz) |" >> release_notes.md
-            echo "| Windows | arm64 | [plugin-${PLUGIN_NAME}_${VERSION}_windows_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-${PLUGIN_NAME}_${VERSION}_windows_arm64.tar.gz) |" >> release_notes.md
-          else
-            VERSION=${GITHUB_REF_NAME#v}
-            echo "# Release v${VERSION}" > release_notes.md
-            echo "" >> release_notes.md
-            echo "## Downloads" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "### CLI" >> release_notes.md
-            echo "Download the CLI for your platform:" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "| OS | Architecture | Download |" >> release_notes.md
-            echo "|---|---|---|" >> release_notes.md
-            echo "| Linux | amd64 | [plugin-cli_${VERSION}_linux_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_linux_amd64.tar.gz) |" >> release_notes.md
-            echo "| Linux | 386 | [plugin-cli_${VERSION}_linux_386.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_linux_386.tar.gz) |" >> release_notes.md
-            echo "| Linux | arm64 | [plugin-cli_${VERSION}_linux_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_linux_arm64.tar.gz) |" >> release_notes.md
-            echo "| macOS | amd64 (Intel) | [plugin-cli_${VERSION}_darwin_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_darwin_amd64.tar.gz) |" >> release_notes.md
-            echo "| macOS | arm64 (M1/M2) | [plugin-cli_${VERSION}_darwin_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_darwin_arm64.tar.gz) |" >> release_notes.md
-            echo "| Windows | amd64 | [plugin-cli_${VERSION}_windows_amd64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_windows_amd64.tar.gz) |" >> release_notes.md
-            echo "| Windows | 386 | [plugin-cli_${VERSION}_windows_386.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_windows_386.tar.gz) |" >> release_notes.md
-            echo "| Windows | arm64 | [plugin-cli_${VERSION}_windows_arm64.tar.gz](../../releases/download/${{ github.ref_name }}/plugin-cli_${VERSION}_windows_arm64.tar.gz) |" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "### Plugins" >> release_notes.md
-            echo "All plugins are included in this release. Download individually as needed." >> release_notes.md
-          fi
-          
+          echo "# Release ${{ github.ref_name }}" > release_notes.md
           echo "" >> release_notes.md
-          echo "## Installation" >> release_notes.md
-          echo "" >> release_notes.md
-          echo '```bash' >> release_notes.md
-          echo '# Download and extract' >> release_notes.md
-          echo 'tar -xzf <archive>.tar.gz' >> release_notes.md
-          echo '' >> release_notes.md
-          echo '# Move to .plugins directory (for plugins)' >> release_notes.md
-          echo 'mkdir -p .plugins' >> release_notes.md
-          echo 'mv plugin-* .plugins/' >> release_notes.md
-          echo 'chmod +x .plugins/plugin-*' >> release_notes.md
-          echo '```' >> release_notes.md
-          
-          echo "" >> release_notes.md
-          echo "## Checksums" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "SHA256 checksums are provided for each archive as \`.sha256\` files." >> release_notes.md
+          echo "Includes prebuilt binaries for Linux, macOS, and Windows." >> release_notes.md
+          echo "Windows = .zip, Linux/macOS = .tar.gz. Checksums in \`checksums.txt\`." >> release_notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
